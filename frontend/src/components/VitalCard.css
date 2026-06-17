@@ -1,0 +1,72 @@
+.vital-card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  padding: 12px 10px;
+  text-align: center;
+  transition: all 0.2s ease;
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+
+.vital-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  background: #ffffff;
+}
+
+.vital-card--selected {
+  border-color: var(--blue-600);
+  box-shadow: 0 0 0 2px rgba(21, 145, 220, 0.2);
+}
+
+.vital-card--normal {
+  border-top: 3px solid #22c55e;
+}
+
+.vital-card--warning {
+  border-top: 3px solid #f59e0b;
+  background: rgba(255, 171, 0, 0.25) !important; /* Brighter, lighter amber */
+}
+
+.vital-card--critical {
+  border-top: 3px solid #ef4444;
+  background: rgba(255, 82, 82, 0.25) !important; /* Brighter, lighter red */
+}
+
+.vital-card__icon {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--slate-500);
+  margin-bottom: 6px;
+}
+
+.vital-card__label {
+  font-size: 10px;
+  color: var(--slate-500);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vital-card__value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--slate-900);
+  font-family: var(--font-mono);
+  line-height: 1;
+}
+
+.vital-card__unit {
+  font-size: 10px;
+  color: var(--slate-400);
+  margin-top: 4px;
+}

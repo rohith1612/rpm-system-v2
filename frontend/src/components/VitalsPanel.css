@@ -1,0 +1,116 @@
+.vitals-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Patient Header */
+.vitals-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--slate-200);
+}
+
+.vitals-panel__header-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.vitals-panel__title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--slate-900);
+  margin: 0;
+}
+
+.vitals-panel__id, .vitals-panel__age {
+  font-size: 13px;
+  color: var(--slate-500);
+  background: var(--slate-100);
+  padding: 2px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--slate-200);
+}
+
+.vitals-panel__settings-btn {
+  margin-left: auto;
+  background: #ffffff;
+  border: 1px solid var(--slate-200);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--slate-600);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.vitals-panel__settings-btn:hover {
+  background: var(--slate-50);
+  border-color: var(--blue-600);
+  color: var(--blue-700);
+}
+
+.vitals-panel__condition {
+  font-size: 12px;
+  color: var(--slate-500);
+  white-space: nowrap;
+}
+
+/* Vital Cards Grid */
+.vitals-panel__grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 1200px) {
+  .vitals-panel__grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .vitals-panel__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* H3: Action buttons in VitalsPanel header */
+.vitals-panel__action-btn {
+  padding: 6px 12px;
+  background: #ffffff;
+  border: 1px solid var(--slate-200);
+  border-radius: 6px;
+  color: var(--slate-600);
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.vitals-panel__action-btn:hover {
+  background: var(--slate-50);
+  border-color: var(--blue-600);
+  color: var(--blue-700);
+}
+
+.vitals-panel__action-btn--icon {
+  padding: 6px 8px;
+  background: transparent;
+  color: var(--slate-500);
+}
+
+.vitals-panel__action-btn--icon:hover {
+  color: var(--blue-600);
+}

@@ -1,0 +1,35 @@
+# Node & Frontend (React/Vite)
+node_modules/
+dist/
+build/
+.npm/
+*.tsbuildinfo
+
+# Python & Backend (FastAPI)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.env
+.venv/
+pip-log.txt
+
+# Databases (VERY IMPORTANT)
+*.sqlite3
+*.db
+*.db-journal
+backend/vitals.db
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
