@@ -10,69 +10,43 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-sys.path.append(
-    os.path.dirname(
-        os.path.dirname(
-            os.path.abspath(__file__)
-        )
-    )
-)
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from backend.config import (
-    CORS_ORIGINS,
-    MQTT_SESSION_ID,
-)
-
+from backend.config import CORS_ORIGINS, MQTT_SESSION_ID
 from backend.database.database import engine
 from backend.database.models import Base
-
 from backend.mqtt.listener import (
     set_broadcast_fn,
     set_event_loop,
     start_mqtt_listener,
 )
-
-from backend.routers import patients
-from backend.routers import vitals
+from backend.routers import patients, vitals
 from backend.routers import websocket as ws_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # ── Startup ───────────────────────────────────────
+    print(f"[RPM] Starting backend (MQTT session: {MQTT_SESSION_ID})")
 
-    print(
-        f"[RPM] Starting backend "
-        f"(MQTT session: {MQTT_SESSION_ID})"
-    )
-
-    # Create PostgreSQL tables
+    # Initialize PostgreSQL tables
     Base.metadata.create_all(bind=engine)
-
-    print(
-        "[RPM] PostgreSQL database initialized"
-    )
+    print("[RPM] PostgreSQL database initialized")
 
     # Wire up MQTT → WebSocket bridge
     loop = asyncio.get_running_loop()
-
     set_event_loop(loop)
+    set_broadcast_fn(ws_router.broadcast)
 
-    set_broadcast_fn(
-        ws_router.broadcast
-    )
-
-    # Start MQTT listener
+    # Start MQTT listener (background thread)
     mqtt_client = start_mqtt_listener()
 
     yield
 
-    # Shutdown
+    # ── Shutdown ──────────────────────────────────────
     mqtt_client.loop_stop()
     mqtt_client.disconnect()
-
-    print(
-        "[RPM] Backend shutdown complete"
-    )
+    print("[RPM] Backend shutdown complete")
 
 
 app = FastAPI(
@@ -81,7 +55,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS
+# ── CORS ──────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -90,18 +64,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Routers
-app.include_router(
-    patients.router
-)
-
-app.include_router(
-    vitals.router
-)
-
-app.include_router(
-    ws_router.router
-)
+# ── Routers ───────────────────────────────────────────
+app.include_router(patients.router)
+app.include_router(vitals.router)
+app.include_router(ws_router.router)
 
 
 @app.get("/")

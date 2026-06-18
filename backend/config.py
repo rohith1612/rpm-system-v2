@@ -8,18 +8,10 @@ import os
 MQTT_BROKER = "broker.emqx.io"
 MQTT_PORT = 1883
 
-MQTT_SESSION_ID = os.environ.get(
-    "RPM_SESSION_ID",
-    "acl-rpm"
-)
-
-MQTT_TOPIC_PATTERN = (
-    f"rpm/{MQTT_SESSION_ID}/+/#"
-)
-
-MQTT_CLIENT_ID = (
-    f"rpm-backend-{MQTT_SESSION_ID}"
-)
+# Unique session prefix to avoid topic collisions on public broker
+MQTT_SESSION_ID = os.environ.get("RPM_SESSION_ID", "acl-rpm")
+MQTT_TOPIC_PATTERN = f"rpm/{MQTT_SESSION_ID}/+/#"
+MQTT_CLIENT_ID = f"rpm-backend-{MQTT_SESSION_ID}"
 
 # ── PostgreSQL ────────────────────────────────────────
 DATABASE_URL = (
@@ -68,7 +60,7 @@ ALERT_THRESHOLDS = {
 
 # ── CORS ──────────────────────────────────────────────
 CORS_ORIGINS = [
-    "http://localhost:5173",
+    "http://localhost:5173",  # Vite dev server
     "http://127.0.0.1:5173",
     "http://localhost:3000",
 ]
