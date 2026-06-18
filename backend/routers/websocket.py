@@ -4,6 +4,7 @@ WebSocket endpoint for real-time vital signs streaming.
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from fastapi.encoders import jsonable_encoder
+
 from backend.services.vitals_service import get_latest_vitals_map
 
 router = APIRouter()
@@ -31,25 +32,23 @@ async def websocket_endpoint(ws: WebSocket):
     try:
         # Send current snapshot of all patients' latest vitals
         snapshot = get_latest_vitals_map()
+
         await ws.send_json(
-    jsonable_encoder(
-        {
-            "type": "snapshot",
-            "data": snapshot,
-        }
-    )
-)
+            jsonable_encoder(
+                {
+                    "type": "snapshot",
+                    "data": snapshot,
+                }
+            )
+        )
 
-        # Keep the connection alive
+        # Keep connection alive
         while True:
-            message = await ws.receive()
-
-            if message["type"] == "websocket.disconnect":
-                break
+            await ws.receive_text()
 
     except WebSocketDisconnect:
-        print("[WS] Client disconnected")
+        connected_clients.discard(ws)
+
     except Exception as e:
         print(f"[WS] WebSocket error: {e}")
-    finally:
         connected_clients.discard(ws)
