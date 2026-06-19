@@ -3,6 +3,7 @@ WebSocket endpoint for real-time vital signs streaming.
 """
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi.encoders import jsonable_encoder
 
 from backend.services.vitals_service import get_latest_vitals_map
 
@@ -31,12 +32,23 @@ async def websocket_endpoint(ws: WebSocket):
     try:
         # Send current snapshot of all patients' latest vitals
         snapshot = get_latest_vitals_map()
-        await ws.send_json({"type": "snapshot", "data": snapshot})
 
-        # Keep connection alive — client doesn't send data, just receives
+        await ws.send_json(
+            jsonable_encoder(
+                {
+                    "type": "snapshot",
+                    "data": snapshot,
+                }
+            )
+        )
+
+        # Keep connection alive
         while True:
             await ws.receive_text()
+
     except WebSocketDisconnect:
         connected_clients.discard(ws)
-    except Exception:
+
+    except Exception as e:
+        print(f"[WS] WebSocket error: {e}")
         connected_clients.discard(ws)
