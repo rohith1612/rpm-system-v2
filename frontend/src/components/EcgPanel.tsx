@@ -126,11 +126,11 @@ export default function EcgPanel({ patient, selectedVital, onSelectVital, onExpa
           <div className="ecg-panel__rhythm">
             <span className="ecg-panel__rhythm-label">Rhythm</span>
             <span className="ecg-panel__rhythm-value" style={{ color: isDataStale ? 'var(--slate-400)' : undefined }}>
-              {isDataStale ? "--" : patient.ecg_rhythm || "NSR"}
+              {isDataStale ? "--" : patient.ecg?.rhythm || "NSR"}
             </span>
           </div>
           {PARAM_LABELS.map(({ key, label, unit, format }) => {
-            const raw = ecg ? (ecg as Record<string, unknown>)[key] : null;
+            const raw = ecg ? (ecg as unknown as Record<string, unknown>)[key] : null;
             const value = !isDataStale && typeof raw === "number" && format ? format(raw) : "--";
             return (
               <div className="ecg-panel__param glass-card" key={key}>

@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@fontsource/bruno-ace-sc": "^5.2.8",
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/manrope": "^5.2.8",
+    "react-router-dom": "^7.18.0"
+  }
+}

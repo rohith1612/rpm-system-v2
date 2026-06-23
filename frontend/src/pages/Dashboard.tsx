@@ -2,7 +2,6 @@
  * Dashboard — main page layout with patient list sidebar, tabbed content, and alerts.
  */
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { useWebSocket } from "../hooks/useWebSocket";
 import PatientList from "../components/PatientList";
 import CentralWorkspace from "../components/CentralWorkspace";
@@ -68,7 +67,7 @@ export default function Dashboard() {
     setSelectedId(null);
   };
 
-  const handleExpandECG = (expanded: boolean) => {
+  const handleExpandECG = (_expanded: boolean) => {
     // Note: implementation details for expand behavior
   };
 
