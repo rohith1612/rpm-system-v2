@@ -17,6 +17,8 @@ export interface Patient {
   recorded_at: string | number | null;
   recent_hr: number[] | null;
   ecg?: EcgPayload | null;
+  room?: string | null;
+  last_updated?: number | string | null;
 }
 
 export interface VitalReading {

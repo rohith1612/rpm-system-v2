@@ -11,6 +11,7 @@ from backend.database.session import SessionLocal
 
 
 def create_patient(
+    patient_id: str,
     name: str,
     age: int,
     condition: str,
@@ -19,21 +20,9 @@ def create_patient(
     db = SessionLocal()
 
     try:
-
-        patient_id = (
-            f"PD_{random.randint(10000,99999)}"
-        )
-
-        while (
-            db.query(Patient)
-            .filter(
-                Patient.id == patient_id
-            )
-            .first()
-        ):
-            patient_id = (
-                f"PD_{random.randint(10000,99999)}"
-            )
+        # Check if already exists
+        if db.query(Patient).filter(Patient.id == patient_id).first():
+            raise ValueError(f"Patient with ID {patient_id} already exists")
 
         patient = Patient(
             id=patient_id,

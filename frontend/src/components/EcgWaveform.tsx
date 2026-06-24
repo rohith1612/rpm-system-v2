@@ -18,7 +18,7 @@ interface Props {
 
 // Base scale constants
 const BASE_PX_PER_MS = 0.25;
-const BASE_GRID_SMALL = 10; 
+const BASE_GRID_SMALL = 10;
 const BASE_GRID_LARGE = 50;
 
 /**
@@ -41,7 +41,7 @@ function ecgAmplitude(
   const pWidth = 80;
   const pCenter = prMs * 0.4;
   let pWave = 0;
-  
+
   if (lead === "V1") {
     // Biphasic P wave in V1
     const tNorm = (t - pCenter) / (pWidth / 2);
@@ -56,7 +56,7 @@ function ecgAmplitude(
   const qrsCenter = prMs;
   const qrsW = qrsMs * 1000;
   const qOffset = t - qrsCenter;
-  
+
   let qDip = -0.15 * Math.exp(-0.5 * ((qOffset + qrsW * 0.1) / (qrsW * 0.1)) ** 2);
   let rPeak = 1.2 * Math.exp(-0.5 * ((qOffset - qrsW * 0.2) / (qrsW * 0.12)) ** 2);
   let sDip = -0.3 * Math.exp(-0.5 * ((qOffset - qrsW * 0.5) / (qrsW * 0.15)) ** 2);
@@ -87,7 +87,7 @@ function ecgAmplitude(
       } else {
         const tProgress = (progress - 0.4) / 0.6;
         tWave = 0.25 * Math.sin(tProgress * Math.PI / 2);
-        stSeg = stOffset * (1 - tProgress); 
+        stSeg = stOffset * (1 - tProgress);
       }
     } else {
       // Fast downstroke from T-peak
@@ -168,17 +168,18 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
 
     const W = rect.width;
     const H = rect.height;
-    
+
     // Scale the graph perfectly to fit the container height without clipping.
     // Restored to the old minimal scaling logic to show more horizontal data.
     const scaleFactor = Math.min(1.2, Math.max(0.3, H / 280));
-    
+
     const gridSmall = BASE_GRID_SMALL * scaleFactor;
     const gridLarge = BASE_GRID_LARGE * scaleFactor;
     const scrollSpeed = BASE_PX_PER_MS * scaleFactor;
 
-    // Background (ECG Paper White)
-    ctx.fillStyle = "#ffffff";
+    // Background (ECG Paper White or Dark Slate)
+    const isDark = document.documentElement.classList.contains("dark");
+    ctx.fillStyle = isDark ? "#0f172a" : "#ffffff";
     ctx.fillRect(0, 0, W, H);
 
     // Draw grid (Medical Pink)
@@ -236,16 +237,16 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
 
     // Default settings for ECG — M4: distinct colors per waveform type
     let strokeColor = waveType === "ecg" ? "#00c853"    // medical green (ECG)
-                    : waveType === "pleth" ? "#00b0ff"  // cyan (SpO₂ pleth)
-                    : "#ffd600";                         // yellow (Resp)
-                    
+      : waveType === "pleth" ? "#00b0ff"  // cyan (SpO₂ pleth)
+        : "#ffd600";                         // yellow (Resp)
+
     const stale = isDataStaleRef.current;
-    
+
     if (stale) strokeColor = "#94a3b8"; // Gray out when stale
 
     let cycleMs = rrMs;
     let labelText = stale ? `-- BPM | Lead ${lead}` : `${hr} BPM | Lead ${lead}`;
-    
+
     // Dynamic vertical cropping and scaling
     let midY = H * 0.5;
     let ampScale = 100 * scaleFactor;
@@ -253,28 +254,32 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
     if (waveType === "ecg") {
       // ECG goes heavily positive (R-peak) and slightly negative. 
       // Shift baseline and boost amplitude so it perfectly crops to the Y edges.
-      midY = lead === "aVR" ? H * 0.35 : H * 0.65; 
-      ampScale = 140 * scaleFactor; 
+      midY = lead === "aVR" ? H * 0.35 : H * 0.65;
+      ampScale = 140 * scaleFactor;
     } else if (waveType === "pleth") {
-      midY = H * 0.5; // Perfectly symmetric
-      ampScale = 180 * scaleFactor;
+      midY = H * 0.42; // Perfectly symmetric
+      ampScale = Math.min(H * 0.20, 75 * scaleFactor);
       const p = patientRef.current;
       const spo2 = p?.spo2 ?? 98;
-      labelText = stale ? `--% SpO2 | Pleth` : `${spo2}% SpO2 | Pleth`;
+      labelText = stale
+        ? `--% SpO2 | Pleth`
+        : `${spo2}% SpO2 | Pleth`;
     } else if (waveType === "resp") {
-      midY = H * 0.5; // Perfectly symmetric
-      ampScale = 180 * scaleFactor;
+      midY = H * 0.42; // Perfectly symmetric
+      ampScale = Math.min(H * 0.18, 65 * scaleFactor);
       const p = patientRef.current;
       const respRate = p?.respiratory_rate ?? 16;
       cycleMs = (60 / Math.max(1, respRate)) * 1000;
-      labelText = stale ? `-- Br/min | Resp` : `${respRate} Br/min | Resp`;
+      labelText = stale
+        ? `-- Br/min | Resp`
+        : `${respRate} Br/min | Resp`;
     }
 
     // Draw waveform
     if (!stale) {
       // Advance time by ~16ms per frame (60 FPS) ONLY if active
-      offsetRef.current += 16; 
-      
+      offsetRef.current += 16;
+
       ctx.beginPath();
       ctx.strokeStyle = strokeColor;
       ctx.lineWidth = 2.5;
@@ -290,10 +295,10 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
       for (let px = 0; px < W; px++) {
         let inGap = false;
         if (px > penX && px < penX + gapWidth) {
-           inGap = true;
+          inGap = true;
         }
         if (penX + gapWidth > W && px < (penX + gapWidth) % W) {
-           inGap = true;
+          inGap = true;
         }
 
         if (inGap) {
@@ -308,8 +313,8 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
           t_px = t_global - (penX - px + W) / scrollSpeed;
         }
 
-        const beatMs = ((t_px % cycleMs) + cycleMs) % cycleMs; 
-        
+        const beatMs = ((t_px % cycleMs) + cycleMs) % cycleMs;
+
         let amp = 0;
         if (hr <= 0) {
           // Asystole / Flatline
@@ -337,12 +342,12 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
       const textW = 100;
       const textH = 26;
       ctx.fillStyle = "rgba(148, 163, 184, 0.15)";
-      ctx.fillRect(W/2 - textW/2, H/2 - textH/2, textW, textH);
+      ctx.fillRect(W / 2 - textW / 2, H / 2 - textH / 2, textW, textH);
       ctx.fillStyle = "#64748b";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.font = `bold ${Math.max(12, 14 * scaleFactor)}px var(--font-mono, 'Consolas', monospace)`;
-      ctx.fillText("NO DATA", W/2, H/2);
+      ctx.fillText("NO DATA", W / 2, H / 2);
       ctx.textAlign = "left"; // reset for labels below
       ctx.textBaseline = "alphabetic";
     }
@@ -350,16 +355,16 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
     // Labels and Values
     const fontSize = Math.max(10, Math.round(14 * scaleFactor));
     ctx.font = `bold ${fontSize}px var(--font-mono, 'Consolas', monospace)`;
-    
-    // Draw a white pill background for text readability over the grid
-    ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+
+    // Draw a pill background for text readability over the grid
+    ctx.fillStyle = isDark ? "rgba(15, 23, 42, 0.85)" : "rgba(255, 255, 255, 0.85)";
     ctx.beginPath();
     const pillW = fontSize * 13;
     const pillH = fontSize * 3.4;
     ctx.roundRect(5, 5, pillW, pillH, 6);
     ctx.fill();
 
-    ctx.fillStyle = "#0f172a";
+    ctx.fillStyle = isDark ? "#f8fafc" : "#0f172a";
     ctx.fillText(labelText, 12, 5 + fontSize * 1.3);
     ctx.fillStyle = "#64748b";
     ctx.fillText(e?.rhythm ?? "---", 12, 5 + fontSize * 2.7);

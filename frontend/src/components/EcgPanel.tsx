@@ -1,5 +1,5 @@
 /**
- * EcgPanel — displays ECG parameters and the real-time waveform.
+ * EcgPanel — displays ECG parameters and the real-time waveform in Argon Dashboard style.
  */
 import { useState, useEffect } from "react";
 import type { Patient, VitalKey } from "../types";
@@ -8,7 +8,6 @@ import EcgWaveform from "./EcgWaveform";
 import VitalCard from "./VitalCard";
 import HistoryModal from "./HistoryModal";
 import ThresholdsModal from "./ThresholdsModal";
-import "./EcgPanel.css";
 
 interface Props {
   patient: Patient;
@@ -58,55 +57,58 @@ export default function EcgPanel({ patient, selectedVital, onSelectVital, onExpa
   }, [isExpanded, showHistory, showSettings, onExpand]);
 
   return (
-    <div className={`ecg-panel ${isExpanded ? "ecg-panel--expanded" : ""}`} id="ecg-panel">
+    <div className={`flex flex-col gap-4 flex-1 ${isExpanded ? "fixed inset-4 z-50 bg-slate-50 dark:bg-slate-900 p-6 rounded-2xl shadow-2xl overflow-y-auto" : ""}`} id="ecg-panel">
       {/* Header and Expand Button */}
-      <div className="ecg-panel__top-bar" style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-        <div style={{ flex: 1, display: 'flex', alignItems: 'baseline', gap: '10px' }}>
-          <h2 className="ecg-panel__patient-name" style={{ margin: 0 }}>
+      <div className="flex items-center justify-between border-b border-slate-100 pb-3 select-none">
+        <div className="flex items-baseline gap-2">
+          <h2 className="text-xl font-bold text-slate-800 dark:text-white tracking-tight capitalize">
             {patient.name || patient.id}
           </h2>
-          <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--slate-500)', fontFamily: 'var(--font-mono)' }}>
+          <span className="text-xs font-semibold font-mono text-slate-400 dark:text-white">
             {patient.id}
           </span>
         </div>
-        {isExpanded && (
-          <div style={{ display: 'flex', gap: '8px', marginRight: '16px' }}>
-            <button 
-              onClick={() => setShowHistory(true)}
-              className="ecg-panel__action-btn"
-            >
-              View History
-            </button>
-            <button
-              onClick={() => setShowSettings(true)}
-              title="Configure Alert Thresholds"
-              className="ecg-panel__action-btn ecg-panel__action-btn--icon"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-            </button>
-          </div>
-        )}
-        <button 
-           className="ecg-panel__expand-btn"
-           onClick={handleToggleExpand}
-        >
-          {isExpanded ? (
+        
+        <div className="flex items-center gap-2">
+          {isExpanded && (
             <>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path></svg>
-              Collapse
-            </>
-          ) : (
-            <>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg>
-              Expand
+              <button 
+                onClick={() => setShowSettings(true)}
+                title="Configure Alert Thresholds"
+                className="p-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-xl transition-all"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+              </button>
+              
+              <button 
+                onClick={() => setShowHistory(true)}
+                className="text-xs px-3 py-2 font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 rounded-xl transition-all"
+              >
+                View History
+              </button>
             </>
           )}
-        </button>
+          
+          <button 
+            className="text-xs px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold rounded-xl transition-all flex items-center gap-1"
+            onClick={handleToggleExpand}
+          >
+            {isExpanded ? (
+              <>
+                <span>✕</span> Collapse
+              </>
+            ) : (
+              <>
+                <span>⛶</span> Expand
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
-      {/* Expanded Vitals */}
+      {/* Expanded Vitals panel (visible only when in fullscreen ECG) */}
       {isExpanded && (
-        <div className="vitals-panel__grid" style={{ marginBottom: '16px' }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-2 select-none">
           {VITAL_CONFIGS.map((cfg) => (
             <VitalCard
               key={cfg.key}
@@ -119,43 +121,46 @@ export default function EcgPanel({ patient, selectedVital, onSelectVital, onExpa
         </div>
       )}
 
-      {/* Content Row for Side-by-Side layout */}
-      <div className="ecg-panel__content-row">
-        {/* Parameter Cards */}
-        <div className="ecg-panel__params">
-          <div className="ecg-panel__rhythm">
-            <span className="ecg-panel__rhythm-label">Rhythm</span>
-            <span className="ecg-panel__rhythm-value" style={{ color: isDataStale ? 'var(--slate-400)' : undefined }}>
-              {isDataStale ? "--" : patient.ecg?.rhythm || "NSR"}
-            </span>
-          </div>
-          {PARAM_LABELS.map(({ key, label, unit, format }) => {
-            const raw = ecg ? (ecg as unknown as Record<string, unknown>)[key] : null;
-            const value = !isDataStale && typeof raw === "number" && format ? format(raw) : "--";
-            return (
-              <div className="ecg-panel__param glass-card" key={key}>
-                <span className="ecg-panel__param-label">{label}</span>
-                <span className="ecg-panel__param-value">
-                  {value}
-                  <span className="ecg-panel__param-unit">{unit}</span>
-                </span>
-              </div>
-            );
-          })}
+      {/* Parameters Row (Grid of ECG variables) */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-2">
+        {/* Rhythm Block */}
+        <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100/50 dark:border-indigo-500/20 rounded-2xl p-4 flex flex-col justify-between shadow-sm select-none">
+          <span className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider">Rhythm Status</span>
+          <span className="text-sm font-extrabold text-indigo-800 dark:text-indigo-300 mt-1 truncate">
+            {isDataStale ? "--" : patient.ecg?.rhythm || "NSR"}
+          </span>
         </div>
 
-        {/* Waveform Canvas Area */}
-        <div className="ecg-panel__waveforms">
-          <div className="ecg-panel__waveform-main glass-card">
-            <EcgWaveform ecg={ecg} patient={patient} waveType="ecg" lead="II" isDataStale={isDataStale} />
+        {/* Regular parameters */}
+        {PARAM_LABELS.map(({ key, label, unit, format }) => {
+          const raw = ecg ? (ecg as unknown as Record<string, unknown>)[key] : null;
+          const value = !isDataStale && typeof raw === "number" && format ? format(raw) : "--";
+          return (
+            <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 flex flex-col justify-between shadow-sm select-none" key={key}>
+              <span className="text-[10px] font-bold text-slate-400 dark:text-white uppercase tracking-wider">{label}</span>
+              <span className="text-sm font-extrabold text-slate-700 dark:text-white mt-1 flex items-baseline gap-0.5">
+                {value}
+                {value !== "--" && <span className="text-[10px] font-normal text-slate-400 dark:text-white ml-0.5">{unit}</span>}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Waveforms Render Area */}
+      <div className="flex flex-col gap-4">
+        {/* Lead II (Main Waveform) */}
+        <div className="min-h-[280px] bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden relative">
+          <EcgWaveform ecg={ecg} patient={patient} waveType="ecg" lead="II" isDataStale={isDataStale} />
+        </div>
+        
+        {/* Sub-waveforms (Pleth and Resp) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0">
+          <div className="h-32 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden relative">
+            <EcgWaveform ecg={ecg} patient={patient} waveType="pleth" isDataStale={isDataStale} />
           </div>
-          <div className="ecg-panel__waveform-row">
-            <div className="ecg-panel__waveform-sub glass-card">
-              <EcgWaveform ecg={ecg} patient={patient} waveType="pleth" isDataStale={isDataStale} />
-            </div>
-            <div className="ecg-panel__waveform-sub glass-card">
-              <EcgWaveform ecg={ecg} patient={patient} waveType="resp" isDataStale={isDataStale} />
-            </div>
+          <div className="h-32 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden relative">
+            <EcgWaveform ecg={ecg} patient={patient} waveType="resp" isDataStale={isDataStale} />
           </div>
         </div>
       </div>
@@ -178,3 +183,4 @@ export default function EcgPanel({ patient, selectedVital, onSelectVital, onExpa
     </div>
   );
 }
+

@@ -1,5 +1,5 @@
 /**
- * VitalChart — historical line chart for a selected vital sign.
+ * VitalChart — historical line chart for a selected vital sign in Argon style.
  * Uses recharts for rendering with smooth live WebSocket updates.
  */
 import { useEffect, useState } from "react";
@@ -15,7 +15,6 @@ import {
 import { fetchPatientVitals } from "../api";
 import type { Patient, VitalKey } from "../types";
 import { VITAL_CONFIGS } from "../types";
-import "./VitalChart.css";
 
 interface Props {
   patient: Patient | null;
@@ -31,12 +30,12 @@ const TIME_RANGES = [
 ];
 
 const LINE_COLORS: Record<string, string> = {
-  heart_rate: "#d73a49",
-  spo2: "#0366d6",
-  temperature: "#f66a0a",
-  respiratory_rate: "#28a745",
-  systolic_bp: "#d73a49",
-  diastolic_bp: "#0366d6",
+  heart_rate: "#6366f1", // indigo
+  spo2: "#06b6d4", // cyan
+  temperature: "#f59e0b", // amber
+  respiratory_rate: "#10b981", // emerald
+  systolic_bp: "#ec4899", // pink
+  diastolic_bp: "#8b5cf6", // purple
 };
 
 export default function VitalChart({ patient, selectedVital, onSelectVital }: Props) {
@@ -46,7 +45,7 @@ export default function VitalChart({ patient, selectedVital, onSelectVital }: Pr
   const [loadingHistory, setLoadingHistory] = useState(false);
   const patientId = patient?.id;
 
-  // H5: Escape key closes fullscreen
+  // Escape key closes fullscreen
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isFullscreen) setIsFullscreen(false);
@@ -140,24 +139,29 @@ export default function VitalChart({ patient, selectedVital, onSelectVital }: Pr
     avgVal = visibleValues.reduce((sum, val) => sum + val, 0) / visibleValues.length;
   }
 
-  // Custom tooltip to show all vitals at the hovered timestamp
+  // Custom tooltip styled like Argon
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const pointData = payload[0].payload;
       return (
-        <div className="vital-chart__tooltip">
-          <p className="vital-chart__tooltip-time">{new Date(label).toLocaleTimeString()}</p>
-          <div className="vital-chart__tooltip-grid">
+        <div className="bg-white border-0 rounded-2xl shadow-xl p-4 text-xs font-sans text-slate-700 dark:text-white min-w-[150px] border-slate-100 dark:bg-transparent dark:border-white/10">
+          <p className="font-bold text-slate-800 dark:text-white border-b border-slate-100 pb-1.5 mb-2">
+            ⏱ {new Date(label).toLocaleTimeString()}
+          </p>
+          <div className="space-y-1.5">
             {VITAL_CONFIGS.map(cfg => {
               const val = pointData[cfg.key];
               if (val === undefined || val === null) return null;
               const isSelected = cfg.key === selectedVital;
               return (
-                <div key={cfg.key} className="vital-chart__tooltip-item">
-                  <span className="vital-chart__tooltip-label" style={{ color: isSelected ? LINE_COLORS[cfg.key] : undefined }}>
+                <div key={cfg.key} className="flex items-center justify-between gap-4">
+                  <span className="font-medium text-slate-500 dark:text-white flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: LINE_COLORS[cfg.key] }} />
                     {cfg.label}
                   </span>
-                  <span className="vital-chart__tooltip-value">{val} {cfg.unit}</span>
+                  <span className={`font-bold ${isSelected ? "text-slate-900 dark:text-white" : "text-slate-600 dark:text-white"}`}>
+                    {val} <span className="text-[10px] font-normal text-slate-400 dark:text-white">{cfg.unit}</span>
+                  </span>
                 </div>
               );
             })}
@@ -169,112 +173,164 @@ export default function VitalChart({ patient, selectedVital, onSelectVital }: Pr
   };
 
   return (
-    <div className={`vital-chart ${isFullscreen ? 'vital-chart--fullscreen' : ''}`} id="vital-chart-section">
-      {/* Controls */}
-      <div className="vital-chart__controls">
-        <div className="vital-chart__vital-select">
-          {VITAL_CONFIGS.map((cfg) => (
+    <div className={`bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-6 flex flex-col transition-all ${
+      isFullscreen 
+        ? "fixed inset-4 z-[60] shadow-2xl dark:bg-slate-900" 
+        : "shadow-sm hover:shadow-md h-[400px]"
+    }`} id="vital-chart-section">
+      
+      {/* Controls Bar */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-50 pb-4 mb-4">
+        {/* Vital Select Pills */}
+        <div className="flex flex-wrap gap-1 bg-slate-50 dark:bg-slate-700 p-1 rounded-xl">
+          {VITAL_CONFIGS.filter(c => c.key !== 'diastolic_bp').map((cfg) => (
             <button
               key={cfg.key}
-              className={`vital-chart__btn ${selectedVital === cfg.key ? "vital-chart__btn--active" : ""}`}
+              className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                (selectedVital === cfg.key || (selectedVital === 'diastolic_bp' && cfg.key === 'systolic_bp'))
+                  ? "bg-white dark:bg-transparent dark:border-white/10 text-slate-800 dark:text-white shadow-sm" 
+                  : "text-slate-400 dark:text-white hover:text-slate-600 dark:text-white dark:hover:text-slate-100 dark:text-white"
+              }`}
               onClick={() => onSelectVital(cfg.key)}
             >
-              {cfg.label}
+              {cfg.key === 'systolic_bp' ? "Blood Pressure" : cfg.label}
             </button>
           ))}
         </div>
-        <div className="vital-chart__time-select">
 
-          {TIME_RANGES.map((tr) => (
-            <button
-              key={tr.minutes}
-              className={`vital-chart__time-btn ${timeRange === tr.minutes ? "vital-chart__time-btn--active" : ""}`}
-              onClick={() => setTimeRange(tr.minutes)}
-            >
-              {tr.label}
-            </button>
-          ))}
+        {/* Time select pills & expand */}
+        <div className="flex items-center gap-2">
+          <div className="flex bg-slate-50 dark:bg-slate-800 p-1 rounded-xl border border-transparent dark:border-slate-700">
+            {TIME_RANGES.map((tr) => (
+              <button
+                key={tr.minutes}
+                className={`text-xs px-2.5 py-1.5 rounded-lg font-semibold transition-all ${
+                  timeRange === tr.minutes 
+                    ? "bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm" 
+                    : "text-slate-400 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                }`}
+                onClick={() => setTimeRange(tr.minutes)}
+              >
+                {tr.label}
+              </button>
+            ))}
+          </div>
+
           <button
-            className="vital-chart__time-btn vital-chart__time-btn--expand"
+            className="text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold transition-colors flex items-center gap-1"
             onClick={() => setIsFullscreen(!isFullscreen)}
             title="Toggle Fullscreen"
           >
-            {isFullscreen ? "Close" : "Expand"}
+            {isFullscreen ? (
+              <>
+                <span>✕</span> Close
+              </>
+            ) : (
+              <>
+                <span>⛶</span> Expand
+              </>
+            )}
           </button>
         </div>
       </div>
 
-      {/* Time Window Context */}
-      <div className="vital-chart__time-window">
-        Viewing: {new Date(domainMin).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-        {" \u2014 "}
-        {new Date(domainMax).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-        <span className="vital-chart__live-badge"> (Live)</span>
+      {/* Time Window Label & Status Bar */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="text-[11px] font-semibold text-slate-400 dark:text-white font-mono">
+          VIEWING: {new Date(domainMin).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          {" \u2014 "}
+          {new Date(domainMax).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+        </div>
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-500 animate-pulse">
+          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          LIVE TELEMETRY
+        </div>
       </div>
 
-      {/* Stats Summary */}
+      {/* Statistics Block */}
       {visibleValues.length > 0 && (
-        <div className="vital-chart__stats">
-          <div className="vital-chart__stat">
-            <span className="vital-chart__stat-label">Min:</span>
-            <span className="vital-chart__stat-value">{minVal % 1 === 0 ? minVal : minVal.toFixed(1)} {config?.unit}</span>
+        <div className="grid grid-cols-3 gap-3 mb-4 shrink-0 select-none">
+          <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-3 border border-slate-100/50 dark:border-slate-700 flex flex-col">
+            <span className="text-[10px] font-bold text-slate-400 dark:text-white uppercase tracking-wider">Min</span>
+            <span className="text-sm font-bold text-slate-700 dark:text-white mt-0.5">
+              {minVal % 1 === 0 ? minVal : minVal.toFixed(1)} <span className="text-[10px] font-normal text-slate-400 dark:text-white">{config?.unit}</span>
+            </span>
           </div>
-          <div className="vital-chart__stat">
-            <span className="vital-chart__stat-label">Max:</span>
-            <span className="vital-chart__stat-value">{maxVal % 1 === 0 ? maxVal : maxVal.toFixed(1)} {config?.unit}</span>
+          <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-3 border border-slate-100/50 dark:border-slate-700 flex flex-col">
+            <span className="text-[10px] font-bold text-slate-400 dark:text-white uppercase tracking-wider">Max</span>
+            <span className="text-sm font-bold text-slate-700 dark:text-white mt-0.5">
+              {maxVal % 1 === 0 ? maxVal : maxVal.toFixed(1)} <span className="text-[10px] font-normal text-slate-400 dark:text-white">{config?.unit}</span>
+            </span>
           </div>
-          <div className="vital-chart__stat">
-            <span className="vital-chart__stat-label">Avg:</span>
-            <span className="vital-chart__stat-value">{avgVal.toFixed(1)} {config?.unit}</span>
+          <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-3 border border-slate-100/50 dark:border-slate-700 flex flex-col">
+            <span className="text-[10px] font-bold text-slate-400 dark:text-white uppercase tracking-wider">Average</span>
+            <span className="text-sm font-bold text-slate-700 dark:text-white mt-0.5">
+              {avgVal.toFixed(1)} <span className="text-[10px] font-normal text-slate-400 dark:text-white">{config?.unit}</span>
+            </span>
           </div>
         </div>
       )}
 
-      {/* Chart */}
-      <div className="vital-chart__container">
+      {/* Recharts Container */}
+      <div className="flex-1 min-h-0 w-full font-mono text-xs">
         {loadingHistory ? (
-          <div className="vital-chart__empty">
-            <div className="vital-chart__spinner"></div>
-            Loading history...
+          <div className="h-full flex flex-col items-center justify-center text-slate-400 dark:text-white gap-2">
+            <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            <span>Loading history...</span>
           </div>
         ) : visibleData.length === 0 ? (
-          <div className="vital-chart__empty">
+          <div className="h-full flex items-center justify-center text-slate-400 dark:text-white">
             No data available for this time period.
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={visibleData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e1e4e8" />
+            <LineChart data={visibleData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f8fafc" vertical={false} />
               <XAxis
                 dataKey="timestampMs"
                 type="number"
                 domain={[domainMin, domainMax]}
-                stroke="#6a737d"
+                stroke="#94a3b8"
                 tickFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString([], {
                   hour: "2-digit",
                   minute: "2-digit",
                   second: "2-digit",
                 })}
-                tick={{ fill: "#586069", fontSize: 11 }}
+                tick={{ fill: "#94a3b8", fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
               />
               <YAxis
-                stroke="#6a737d"
-                tick={{ fill: "#586069", fontSize: 11 }}
+                stroke="#94a3b8"
+                tick={{ fill: "#94a3b8", fontSize: 10 }}
                 domain={[
                   (dataMin: number) => Math.floor(dataMin * 0.95),
                   (dataMax: number) => Math.ceil(dataMax * 1.05)
                 ]}
+                axisLine={false}
+                tickLine={false}
               />
               <Tooltip content={<CustomTooltip />} />
               <Line
                 type="monotone"
-                dataKey={selectedVital}
-                stroke={LINE_COLORS[selectedVital] || "#0366d6"}
-                strokeWidth={2}
+                dataKey={selectedVital === 'diastolic_bp' ? 'systolic_bp' : selectedVital}
+                stroke={LINE_COLORS[selectedVital === 'diastolic_bp' ? 'systolic_bp' : selectedVital] || "#6366f1"}
+                strokeWidth={2.5}
                 dot={false}
                 isAnimationActive={false}
-                name={`${config?.label || ""} (${config?.unit || ""})`}
+                name={selectedVital === 'systolic_bp' || selectedVital === 'diastolic_bp' ? "Systolic BP (mmHg)" : `${config?.label || ""} (${config?.unit || ""})`}
               />
+              {(selectedVital === 'systolic_bp' || selectedVital === 'diastolic_bp') && (
+                <Line
+                  type="monotone"
+                  dataKey="diastolic_bp"
+                  stroke={LINE_COLORS['diastolic_bp'] || "#8b5cf6"}
+                  strokeWidth={2.5}
+                  dot={false}
+                  isAnimationActive={false}
+                  name="Diastolic BP (mmHg)"
+                />
+              )}
             </LineChart>
           </ResponsiveContainer>
         )}
@@ -282,3 +338,4 @@ export default function VitalChart({ patient, selectedVital, onSelectVital }: Pr
     </div>
   );
 }
+

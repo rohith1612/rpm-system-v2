@@ -17,13 +17,13 @@ export function HeroSection() {
                     <div className="min-h-[calc(100vh-80px)] flex flex-col justify-between pt-20 pb-4">
                         <div className="relative z-10 w-full px-12 lg:px-20">
                             <div className="max-w-2xl text-left mt-10">
-                                <h1 className="mt-10 max-w-2xl text-balance text-white text-5xl md:text-6xl lg:mt-16 xl:text-5xl"> Welcome To <span className='text-[4.5rem] font-bold' style={{ fontFamily: "'Bruno Ace SC', sans-serif" }}>Remote Patient Monitoring System</span></h1>
+                                <h1 className="mt-10 max-w-2xl text-balance text-white text-5xl md:text-6xl lg:mt-16 xl:text-4xl"> Welcome To         <span className='text-[4rem] font-bold' style={{ fontFamily: "'Bruno Ace SC', sans-serif" }}> <br /> Remote Patient Monitoring System</span></h1>
                                 <p className="mt-8 max-w-2xl text-white text-balance text-lg">Monitor patient health in real time using secure IoMT devices and intelligent analytics.</p>
                                 <div className="mt-12 flex flex-col items-center justify-center gap-2 sm:flex-row lg:justify-start">
                                     <Button
                                         asChild
                                         size="lg"
-                                        className="h-12 text-black bg-white rounded-full pl-5 pr-3 text-base">
+                                        className="h-12 text-black bg-white rounded-full pl-5 pr-3 text-base dark:bg-transparent dark:border-white/10">
                                         <Link to="/dashboard">
                                             <span className="text-nowrap">Start Monitoring</span>
                                             <ChevronRight className="ml-1" />

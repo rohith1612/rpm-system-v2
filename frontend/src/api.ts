@@ -50,7 +50,7 @@ export async function fetchPatientAlerts(patientId: string, limit: number = 50) 
   return res.json();
 }
 
-export async function createPatient(data: { name: string; age: number; condition: string }) {
+export async function createPatient(data: { id?: string; name: string; age: number; condition: string }) {
   const res = await fetch(`${API_BASE}/patients`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

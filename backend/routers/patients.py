@@ -19,6 +19,7 @@ class ThresholdUpdate(BaseModel):
     crit_high: Optional[float] = None
 
 class PatientCreateUpdate(BaseModel):
+    id: str
     name: str
     age: int
     condition: str
@@ -45,7 +46,7 @@ async def create_new_patient(patient: PatientCreateUpdate):
     """Create a new patient."""
     from backend.services.vitals_service import create_patient, get_latest_vitals_map
     from backend.routers.websocket import broadcast
-    res = create_patient(patient.name, patient.age, patient.condition)
+    res = create_patient(patient.id, patient.name, patient.age, patient.condition)
     await broadcast({"type": "snapshot", "data": get_latest_vitals_map()})
     return res
 

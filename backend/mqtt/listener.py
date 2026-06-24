@@ -38,6 +38,7 @@ def _on_connect(client, userdata, flags, reason_code, properties):
 def _on_message(client, userdata, msg):
     try:
         payload = json.loads(msg.payload.decode())
+        print(f"[MQTT DEBUG] Received message on topic: {msg.topic}")
 
         # Topic format: rpm/{session_id}/{patient_id}/{type}
         parts = msg.topic.split("/")
@@ -53,7 +54,10 @@ def _on_message(client, userdata, msg):
         # Verify patient exists in DB before processing
         from backend.services.vitals_service import get_patient
         if not get_patient(patient_id):
+            print(f"[MQTT DEBUG] Ignored message for {patient_id} - not found in DB")
             return
+            
+        print(f"[MQTT DEBUG] Processing {msg_type} for {patient_id}")
 
         if msg_type == "ecg":
             # ECG is real-time only — broadcast to WebSocket, no DB storage

@@ -101,12 +101,18 @@
   --glass-blur: blur(28px);
 }
 
-html, body, #root {
+html {
   height: 100%;
   width: 100%;
+  overflow: hidden;
 }
 
 body {
+  width: 125vw;
+  height: 125vh;
+  transform: scale(0.8);
+  transform-origin: top left;
+  overflow: hidden;
   font-family: var(--font-sans);
   /* A very subtle gradient background to allow glassmorphism to show */
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
@@ -115,6 +121,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
   font-size: 14px;
   line-height: 1.5;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
 }
 
 /* Minimal light glassmorphism utility class with grain */
