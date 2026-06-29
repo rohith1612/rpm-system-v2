@@ -91,12 +91,17 @@ export default function PatientModal({ patientToEdit, onClose, onSaved }: Props)
         ) : (
           <>
             <div className="modal__content patient-modal__content">
-              {!isEditing && (
+              {!isEditing ? (
                 <div className="patient-modal__info-box">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>
                   <span>A new Patient ID will be automatically generated upon saving.</span>
                 </div>
-              )}
+              ) : patientToEdit?.cerner_patient_id ? (
+                <div className="patient-modal__info-box" style={{ background: 'var(--blue-50)', color: 'var(--blue-700)', borderColor: 'var(--blue-200)' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>
+                  <span>Linked to Cerner Patient ID: <strong>{patientToEdit.cerner_patient_id}</strong></span>
+                </div>
+              ) : null}
 
               <div className="patient-modal__form">
                 <div className="patient-modal__control-group">

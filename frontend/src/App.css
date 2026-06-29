@@ -1,17 +1,1 @@
 /* App-level styles — intentionally empty, styles live in component CSS files */
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap');
-
-.monitor-display {
-    font-family: 'Orbitron', sans-serif;
-
-    font-weight: 700;
-
-    letter-spacing: 3px;
-
-    text-shadow:
-        0 0 4px currentColor,
-        0 0 8px currentColor,
-        0 0 14px currentColor;
-
-    line-height: 1;
-}

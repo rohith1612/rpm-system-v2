@@ -10,6 +10,13 @@ export async function fetchPatients() {
   return res.json();
 }
 
+export async function fetchPatientInsights(patientId: string) {
+  const res = await fetch(`${API_BASE}/patients/${patientId}/insights`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Failed to fetch insights");
+  return data;
+}
+
 export async function fetchPatientVitals(patientId: string, minutes: number = 30, endTime: number | null = null) {
   let url = `${API_BASE}/patients/${patientId}/vitals?minutes=${minutes}`;
   if (endTime !== null) {
@@ -17,6 +24,12 @@ export async function fetchPatientVitals(patientId: string, minutes: number = 30
   }
   const res = await fetch(url);
   if (!res.ok) throw new Error("Failed to fetch vitals");
+  return res.json();
+}
+
+export async function fetchPatientEcg(patientId: string) {
+  const res = await fetch(`${API_BASE}/patients/${patientId}/ecg`);
+  if (!res.ok) throw new Error("Failed to fetch ECG");
   return res.json();
 }
 
@@ -50,13 +63,19 @@ export async function fetchPatientAlerts(patientId: string, limit: number = 50) 
   return res.json();
 }
 
-export async function createPatient(data: { id?: string; name: string; age: number; condition: string }) {
+export async function createPatient(data: { name: string; age: number; condition: string; cerner_patient_id?: string }) {
   const res = await fetch(`${API_BASE}/patients`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error("Failed to create patient");
+  return res.json();
+}
+
+export async function fetchCernerPatientDetails(cernerPatientId: string) {
+  const res = await fetch(`${API_BASE}/patients/cerner/${cernerPatientId}`);
+  if (!res.ok) throw new Error("Failed to fetch Cerner patient details");
   return res.json();
 }
 
@@ -77,3 +96,46 @@ export async function deletePatient(patientId: string) {
   if (!res.ok) throw new Error("Failed to delete patient");
   return res.json();
 }
+
+export async function fetchBeds() {
+  const res = await fetch(`${API_BASE}/beds`);
+  if (!res.ok) throw new Error("Failed to fetch beds");
+  return res.json();
+}
+
+export async function assignBed(bedId: string, patientId: string) {
+  const res = await fetch(`${API_BASE}/beds/${bedId}/assign`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ patient_id: patientId }),
+  });
+  if (!res.ok) throw new Error("Failed to assign bed");
+  return res.json();
+}
+
+export async function unassignBed(bedId: string) {
+  const res = await fetch(`${API_BASE}/beds/${bedId}/unassign`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to unassign bed");
+  return res.json();
+}
+
+export async function syncPatientVitalsToCerner(patientId: string, vitals: any) {
+  const res = await fetch(`${API_BASE}/patients/${patientId}/cerner/sync`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(vitals),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || "Failed to sync vitals to Cerner");
+  return data;
+}
+
+export async function fetchQueueSize(): Promise<number> {
+  const res = await fetch(`${API_BASE}/patients/cerner/queue-size`);
+  if (!res.ok) throw new Error("Failed to fetch queue size");
+  const data = await res.json();
+  return data.size;
+}
+

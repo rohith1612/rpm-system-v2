@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { getThresholds, updateThresholds } from "../api";
-import { VITAL_CONFIGS } from "../types";
+import { getVitalLabel } from "../types";
 import "./ThresholdsModal.css";
 
 interface Props {
@@ -57,7 +57,7 @@ export default function ThresholdsModal({ patientId, patientName, onClose }: Pro
 
       for (let i = 0; i < vals.length - 1; i++) {
         if (vals[i].val > vals[i + 1].val) {
-          const label = VITAL_CONFIGS.find(c => c.key === t.vital_type)?.label || t.vital_type;
+          const label = getVitalLabel(t.vital_type);
           errors[t.vital_type] = `${label}: values must satisfy Crit Low ≤ Warn Low ≤ Warn High ≤ Crit High`;
           break;
         }
@@ -107,7 +107,7 @@ export default function ThresholdsModal({ patientId, patientName, onClose }: Pro
               </thead>
               <tbody>
                 {thresholds.map((t, idx) => {
-                  const label = VITAL_CONFIGS.find(c => c.key === t.vital_type)?.label || t.vital_type;
+                  const label = getVitalLabel(t.vital_type);
                   return (
                     <tr key={t.vital_type} className={validationErrors[t.vital_type] ? "thresholds-row--error" : ""}>
                       <td>

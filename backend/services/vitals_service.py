@@ -1,454 +1,356 @@
+"""
+Business logic for storing and retrieving vital sign data with in-memory caching and batched database flushes.
+"""
 
 import random
-from datetime import datetime, timedelta
+import queue
+import threading
+import time
+from datetime import datetime, timedelta, timezone
 
-from backend.database.models import (
-    Patient,
-    Vital,
-)
+from backend.database.connection import get_connection
 
-from backend.database.session import SessionLocal
+vitals_queue = queue.Queue()
+latest_vitals_cache = {}
+latest_ecg_cache = {}
+
+def _ensure_patient(conn, patient_id: str):
+    """
+    Deprecated: The system now strictly requires patients to be registered
+    via the frontend API first. The MQTT listener rejects telemetry for
+    unknown patients before it reaches this point.
+    """
+    pass
 
 
-def create_patient(
-    patient_id: str,
-    name: str,
-    age: int,
-    condition: str,
-) -> dict:
+def create_patient(name: str, age: int, condition: str, cerner_patient_id: str | None = None) -> dict:
+    """Create a new patient with a random PD_XXXXX ID."""
+    conn = get_connection()
+    # Generate random 5-digit ID
+    patient_id = f"PD_{random.randint(10000, 99999):05d}"
+    
+    # Ensure uniqueness
+    while conn.execute("SELECT id FROM patients WHERE id = ?", (patient_id,)).fetchone():
+        patient_id = f"PD_{random.randint(10000, 99999):05d}"
+        
+    conn.execute(
+        "INSERT INTO patients (id, name, age, condition, cerner_patient_id) VALUES (?, ?, ?, ?, ?)",
+        (patient_id, name, age, condition, cerner_patient_id),
+    )
+    conn.commit()
+    return {"id": patient_id, "name": name, "age": age, "condition": condition, "cerner_patient_id": cerner_patient_id}
 
-    db = SessionLocal()
+def update_patient(patient_id: str, name: str, age: int, condition: str) -> dict:
+    """Update an existing patient's details."""
+    conn = get_connection()
+    conn.execute(
+        "UPDATE patients SET name = ?, age = ?, condition = ? WHERE id = ?",
+        (name, age, condition, patient_id),
+    )
+    conn.commit()
+    return get_patient(patient_id)
 
+def delete_patient(patient_id: str):
+    """Delete a patient and cascade delete all their related telemetry and thresholds."""
+    conn = get_connection()
+    conn.execute("DELETE FROM vitals WHERE patient_id = ?", (patient_id,))
+    conn.execute("DELETE FROM alerts WHERE patient_id = ?", (patient_id,))
+    conn.execute("DELETE FROM patient_thresholds WHERE patient_id = ?", (patient_id,))
+    conn.execute("DELETE FROM patient_beds WHERE patient_id = ?", (patient_id,))
+    conn.execute("DELETE FROM patients WHERE id = ?", (patient_id,))
+    conn.commit()
+
+
+def store_vitals(data: dict):
+    """
+    Queue vital signs reading in memory.
+    Updates the in-memory latest vitals cache immediately.
+    """
+    patient_id = data.get("patient_id")
+    if not patient_id:
+        return None
+
+    # Update in-memory latest cache for instantaneous API retrieval
+    recorded_at = datetime.fromtimestamp(
+        data.get("timestamp", datetime.now().timestamp())
+    ).strftime("%Y-%m-%dT%H:%M:%S")
+
+    latest_vitals_cache[patient_id] = {
+        "id": patient_id,
+        "patient_id": patient_id,
+        "heart_rate": data.get("heart_rate"),
+        "spo2": data.get("spo2"),
+        "temperature": data.get("temperature"),
+        "respiratory_rate": data.get("respiratory_rate"),
+        "systolic_bp": data.get("systolic_bp"),
+        "diastolic_bp": data.get("diastolic_bp"),
+        "recorded_at": recorded_at,
+    }
+
+    # Queue it for 10-second batched db writes
+    vitals_queue.put(data)
+    return None
+
+def store_ecg(patient_id: str, ecg_payload: dict, timestamp: float):
+    """Store ECG in volatile memory buffer that refreshes per patient."""
+    if patient_id not in latest_ecg_cache:
+        latest_ecg_cache[patient_id] = []
+    
+    # Keep last 10 seconds (approx 500 samples at 50Hz)
+    latest_ecg_cache[patient_id].append({
+        "timestamp": timestamp,
+        "data": ecg_payload
+    })
+    
+    # Trim to 500 max to avoid memory leak
+    if len(latest_ecg_cache[patient_id]) > 500:
+        latest_ecg_cache[patient_id] = latest_ecg_cache[patient_id][-500:]
+
+def get_latest_ecg(patient_id: str) -> list[dict]:
+    """Retrieve in-memory ECG buffer for a patient."""
+    return latest_ecg_cache.get(patient_id, [])
+
+def clear_ecg(patient_id: str):
+    """Clear ECG buffer when patient changes."""
+    if patient_id in latest_ecg_cache:
+        del latest_ecg_cache[patient_id]
+
+def flush_vitals_to_db():
+    """Drain the queue and perform batched database write."""
+    items = []
+    while not vitals_queue.empty():
+        try:
+            items.append(vitals_queue.get_nowait())
+        except queue.Empty:
+            break
+
+    if not items:
+        return
+        
+    # Congestion control: Keep only the latest vital reading for each patient in this batch
+    latest_per_patient = {}
+    for data in items:
+        pid = data["patient_id"]
+        latest_per_patient[pid] = data
+        
+    downsampled_items = list(latest_per_patient.values())
+
+    conn = get_connection()
     try:
-        # Check if already exists
-        if db.query(Patient).filter(Patient.id == patient_id).first():
-            raise ValueError(f"Patient with ID {patient_id} already exists")
+        for data in downsampled_items:
+            recorded_at = datetime.fromtimestamp(
+                data.get("timestamp", datetime.now().timestamp())
+            ).strftime("%Y-%m-%dT%H:%M:%S")
 
-        patient = Patient(
-            id=patient_id,
-            name=name,
-            age=age,
-            condition=condition,
-        )
-
-        db.add(patient)
-        db.commit()
-
-        return {
-            "id": patient_id,
-            "name": name,
-            "age": age,
-            "condition": condition,
-        }
-
-    finally:
-        db.close()
-
-
-def update_patient(
-    patient_id: str,
-    name: str,
-    age: int,
-    condition: str,
-):
-
-    db = SessionLocal()
-
-    try:
-
-        patient = (
-            db.query(Patient)
-            .filter(
-                Patient.id == patient_id
+            conn.execute(
+                """INSERT INTO vitals
+                   (patient_id, heart_rate, spo2, temperature,
+                    respiratory_rate, systolic_bp, diastolic_bp, recorded_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    data["patient_id"],
+                    data.get("heart_rate"),
+                    data.get("spo2"),
+                    data.get("temperature"),
+                    data.get("respiratory_rate"),
+                    data.get("systolic_bp"),
+                    data.get("diastolic_bp"),
+                    recorded_at,
+                ),
             )
-            .first()
-        )
-
-        if not patient:
-            return None
-
-        patient.name = name
-        patient.age = age
-        patient.condition = condition
-
-        db.commit()
-
-        return get_patient(patient_id)
-
-    finally:
-        db.close()
-
-
-def delete_patient(
-    patient_id: str,
-):
-
-    db = SessionLocal()
-
-    try:
-
-        patient = (
-            db.query(Patient)
-            .filter(
-                Patient.id == patient_id
-            )
-            .first()
-        )
-
-        if patient:
-            db.delete(patient)
-            db.commit()
-
-    finally:
-        db.close()
-
-
-def store_vitals(
-    data: dict,
-):
-
-    db = SessionLocal()
-
-    try:
-
-        timestamp = data.get(
-            "timestamp"
-        )
-
-        if timestamp:
-
-            if timestamp > 1000000000000:
-                recorded_at = (
-                    datetime.utcfromtimestamp(
-                        timestamp / 1000.0
-                    )
-                )
-            else:
-                recorded_at = (
-                    datetime.utcfromtimestamp(
-                        timestamp
-                    )
-                )
-
-        else:
-            recorded_at = datetime.utcnow()
-
-        vital = Vital(
-            patient_id=data["patient_id"],
-            heart_rate=data.get("heart_rate"),
-            spo2=data.get("spo2"),
-            temperature=data.get("temperature"),
-            respiratory_rate=data.get(
-                "respiratory_rate"
-            ),
-            systolic_bp=data.get(
-                "systolic_bp"
-            ),
-            diastolic_bp=data.get(
-                "diastolic_bp"
-            ),
-            recorded_at=recorded_at,
-        )
-
-        db.add(vital)
-        db.commit()
-        db.refresh(vital)
-
-        return vital.id
-
-    finally:
-        db.close()
-
-
-def get_all_patients():
-
-    db = SessionLocal()
-
-    try:
-
-        patients = (
-            db.query(Patient)
-            .all()
-        )
-
-        result = []
-
-        for patient in patients:
-
-            latest = (
-                db.query(Vital)
-                .filter(
-                    Vital.patient_id
-                    == patient.id
-                )
-                .order_by(
-                    Vital.recorded_at.desc()
-                )
-                .first()
-            )
-
-            result.append(
-                {
-                    "id": patient.id,
-                    "name": patient.name,
-                    "age": patient.age,
-                    "condition": patient.condition,
-                    "registered_at": patient.registered_at.isoformat()
-                        if patient.registered_at else None,
-                    "heart_rate":
-                        latest.heart_rate
-                        if latest else None,
-
-                    "spo2":
-                        latest.spo2
-                        if latest else None,
-
-                    "temperature":
-                        latest.temperature
-                        if latest else None,
-
-                    "respiratory_rate":
-                        latest.respiratory_rate
-                        if latest else None,
-
-                    "systolic_bp":
-                        latest.systolic_bp
-                        if latest else None,
-
-                    "diastolic_bp":
-                        latest.diastolic_bp
-                        if latest else None,
-
-                    "recorded_at": (
-                        latest.recorded_at.isoformat()
-                        if latest and latest.recorded_at
-                        else None
-                    ),
-                }
-            )
-
-        return result
-
-    finally:
-        db.close()
-
-
-def get_patient(
-    patient_id: str,
-):
-
-    db = SessionLocal()
-
-    try:
-
-        patient = (
-            db.query(Patient)
-            .filter(
-                Patient.id == patient_id
-            )
-            .first()
-        )
-
-        if not patient:
-            return None
-
-        latest = (
-            db.query(Vital)
-            .filter(
-                Vital.patient_id
-                == patient_id
-            )
-            .order_by(
-                Vital.recorded_at.desc()
-            )
-            .first()
-        )
-
-        return {
-            "id": patient.id,
-            "name": patient.name,
-            "age": patient.age,
-            "condition": patient.condition,
-            "registered_at": patient.registered_at.isoformat()
-                if patient.registered_at else None,
-
-            "heart_rate":
-                latest.heart_rate
-                if latest else None,
-
-            "spo2":
-                latest.spo2
-                if latest else None,
-
-            "temperature":
-                latest.temperature
-                if latest else None,
-
-            "respiratory_rate":
-                latest.respiratory_rate
-                if latest else None,
-
-            "systolic_bp":
-                latest.systolic_bp
-                if latest else None,
-
-            "diastolic_bp":
-                latest.diastolic_bp
-                if latest else None,
-
-            "recorded_at": (
-                latest.recorded_at.isoformat()
-                if latest and latest.recorded_at
-                else None
-            ),
-        }
-
-    finally:
-        db.close()
-
-
-def get_vitals_history(
-    patient_id: str,
-    minutes: int = 30,
-    end_time=None,
-):
-
-    db = SessionLocal()
-
-    try:
-
-        if end_time:
-
-            end_dt = datetime.fromtimestamp(
-                end_time / 1000.0
-            )
-
-            start_dt = (
-                end_dt
-                - timedelta(
-                    minutes=minutes
-                )
-            )
-
-        else:
-
-            end_dt = datetime.utcnow()
-
-            start_dt = (
-                end_dt
-                - timedelta(
-                    minutes=minutes
-                )
-            )
-
-        rows = (
-            db.query(Vital)
-            .filter(
-                Vital.patient_id
-                == patient_id,
-                Vital.recorded_at
-                >= start_dt,
-                Vital.recorded_at
-                <= end_dt,
-            )
-            .order_by(
-                Vital.recorded_at.asc()
-            )
-            .all()
-        )
-
-        return [
-            {
-                "heart_rate":
-                    row.heart_rate,
-                "spo2":
-                    row.spo2,
-                "temperature":
-                    row.temperature,
-                "respiratory_rate":
-                    row.respiratory_rate,
-                "systolic_bp":
-                    row.systolic_bp,
-                "diastolic_bp":
-                    row.diastolic_bp,
-                "recorded_at": 
-                    row.recorded_at.isoformat(),
-            }
-            for row in rows
-        ]
-
-    finally:
-        db.close()
-
-
-def get_hourly_history_aggregated(
-    patient_id: str,
-    date_str: str,
-    hour: int,
-):
-
-    db = SessionLocal()
-
-    try:
-
-        start_dt = datetime.strptime(
-            f"{date_str} {hour}",
-            "%Y-%m-%d %H",
-        )
-
-        end_dt = (
-            start_dt
-            + timedelta(hours=1)
-        )
-
-        rows = (
-            db.query(Vital)
-            .filter(
-                Vital.patient_id
-                == patient_id,
-                Vital.recorded_at
-                >= start_dt,
-                Vital.recorded_at
-                < end_dt,
-            )
-            .order_by(
-                Vital.recorded_at.asc()
-            )
-            .all()
-        )
-
-        return [
-            {
-                "heart_rate":
-                    row.heart_rate,
-                "spo2":
-                    row.spo2,
-                "temperature":
-                    row.temperature,
-                "respiratory_rate":
-                    row.respiratory_rate,
-                "systolic_bp":
-                    row.systolic_bp,
-                "diastolic_bp":
-                    row.diastolic_bp,
-                "recorded_at":
-                    row.recorded_at.isoformat(),
-            }
-            for row in rows
-        ]
-
-    finally:
-        db.close()
-
-
-def get_latest_vitals_map():
-
-    patients = get_all_patients()
-
-    result = {}
-
+        conn.commit()
+        print(f"[RPM] Database: successfully flushed {len(downsampled_items)} downsampled vitals to database")
+    except Exception as e:
+        print(f"[RPM] Database error flushing vitals: {e}")
+        # Put items back to queue
+        for item in downsampled_items:
+            vitals_queue.put(item)
+
+
+def db_flush_worker():
+    """Background worker thread that flushes queued vitals every 10 seconds."""
+    while True:
+        try:
+            time.sleep(10)
+            flush_vitals_to_db()
+        except Exception as e:
+            print(f"[RPM] Error in db flush worker thread: {e}")
+
+
+# Start background thread immediately on module load
+worker_thread = threading.Thread(target=db_flush_worker, daemon=True)
+worker_thread.start()
+
+
+def get_all_patients() -> list[dict]:
+    """Return all patients with their latest vital snapshot (merged with in-memory cache)."""
+    conn = get_connection()
+    rows = conn.execute("""SELECT p.id, p.name, p.age, p.condition, p.registered_at, p.cerner_patient_id,
+                  v.heart_rate, v.spo2, v.temperature,
+                  v.respiratory_rate, v.systolic_bp, v.diastolic_bp,
+                  v.recorded_at
+           FROM patients p
+           LEFT JOIN vitals v ON v.id = (
+               SELECT id FROM vitals
+               WHERE patient_id = p.id
+               ORDER BY recorded_at DESC LIMIT 1
+           )
+           ORDER BY p.id""").fetchall()
+    patients = []
+    for r in rows:
+        p = dict(r)
+        if isinstance(p.get("registered_at"), datetime):
+            p["registered_at"] = p["registered_at"].strftime("%Y-%m-%dT%H:%M:%S")
+        if isinstance(p.get("recorded_at"), datetime):
+            p["recorded_at"] = p["recorded_at"].strftime("%Y-%m-%dT%H:%M:%S")
+        patients.append(p)
+    # Merge with in-memory real-time cache
     for p in patients:
+        pid = p["id"]
+        if pid in latest_vitals_cache:
+            cache = latest_vitals_cache[pid]
+            p.update({
+                "heart_rate": cache["heart_rate"],
+                "spo2": cache["spo2"],
+                "temperature": cache["temperature"],
+                "respiratory_rate": cache["respiratory_rate"],
+                "systolic_bp": cache["systolic_bp"],
+                "diastolic_bp": cache["diastolic_bp"],
+                "recorded_at": cache["recorded_at"],
+            })
+    return patients
 
-        result[p["id"]] = p
 
+def get_patient(patient_id: str) -> dict | None:
+    """Single patient with latest vitals (merged with in-memory cache)."""
+    conn = get_connection()
+    row = conn.execute(
+        """SELECT p.id, p.name, p.age, p.condition, p.registered_at, p.cerner_patient_id,
+                  v.heart_rate, v.spo2, v.temperature,
+                  v.respiratory_rate, v.systolic_bp, v.diastolic_bp,
+                  v.recorded_at
+           FROM patients p
+           LEFT JOIN vitals v ON v.id = (
+               SELECT id FROM vitals
+               WHERE patient_id = p.id
+               ORDER BY recorded_at DESC LIMIT 1
+           )
+           WHERE p.id = ?""",
+        (patient_id,),
+      ).fetchone()
+    if not row:
+        return None
+    p = dict(row)
+    if isinstance(p.get("registered_at"), datetime):
+        p["registered_at"] = p["registered_at"].strftime("%Y-%m-%dT%H:%M:%S")
+    if isinstance(p.get("recorded_at"), datetime):
+        p["recorded_at"] = p["recorded_at"].strftime("%Y-%m-%dT%H:%M:%S")
+    
+    pid = p["id"]
+    if pid in latest_vitals_cache:
+        cache = latest_vitals_cache[pid]
+        p.update({
+            "heart_rate": cache["heart_rate"],
+            "spo2": cache["spo2"],
+            "temperature": cache["temperature"],
+            "respiratory_rate": cache["respiratory_rate"],
+            "systolic_bp": cache["systolic_bp"],
+            "diastolic_bp": cache["diastolic_bp"],
+            "recorded_at": cache["recorded_at"],
+        })
+    return p
+
+
+def get_vitals_history(patient_id: str, minutes: int = 30, end_time: float | None = None) -> list[dict]:
+    """Return time-series vitals for a patient within a specific window."""
+    conn = get_connection()
+    if end_time:
+        end_dt = datetime.fromtimestamp(end_time / 1000.0).strftime("%Y-%m-%dT%H:%M:%S")
+        from datetime import timedelta
+        start_dt = (datetime.fromtimestamp(end_time / 1000.0) - timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%S")
+        rows = conn.execute(
+            """SELECT heart_rate, spo2, temperature,
+                      respiratory_rate, systolic_bp, diastolic_bp,
+                      recorded_at
+               FROM vitals
+               WHERE patient_id = ?
+                 AND recorded_at >= ?
+                 AND recorded_at <= ?
+               ORDER BY recorded_at ASC""",
+            (patient_id, start_dt, end_dt),
+        ).fetchall()
+    else:
+        from datetime import timedelta
+        cutoff = (datetime.now() - timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%S")
+        rows = conn.execute(
+            """SELECT heart_rate, spo2, temperature,
+                      respiratory_rate, systolic_bp, diastolic_bp,
+                      recorded_at
+               FROM vitals
+               WHERE patient_id = ?
+                 AND recorded_at >= ?
+               ORDER BY recorded_at ASC""",
+            (patient_id, cutoff),
+        ).fetchall()
+        
+    results = []
+    for r in rows:
+        d = dict(r)
+        if isinstance(d.get("recorded_at"), datetime):
+            d["recorded_at"] = d["recorded_at"].strftime("%Y-%m-%dT%H:%M:%S")
+        results.append(d)
+    return results
+
+
+def get_hourly_history_aggregated(patient_id: str, date_str: str, hour: int) -> list[dict]:
+    """
+    Return 1 hour of vitals, aggregated into 1-minute averages (max 60 points).
+    date_str: 'YYYY-MM-DD'
+    hour: 0-23
+    """
+    conn = get_connection()
+    start_prefix = f"{date_str}T{hour:02d}:00"
+    end_prefix = f"{date_str}T{hour:02d}:59"
+    
+    # Postgres aggregation queries using to_char and numeric casting
+    rows = conn.execute(
+        """SELECT 
+              to_char(recorded_at, 'YYYY-MM-DD"T"HH24:MI:00') as recorded_at,
+              ROUND(CAST(AVG(heart_rate) AS numeric), 1) as heart_rate,
+              ROUND(CAST(AVG(spo2) AS numeric), 1) as spo2,
+              ROUND(CAST(AVG(temperature) AS numeric), 1) as temperature,
+              ROUND(CAST(AVG(respiratory_rate) AS numeric), 1) as respiratory_rate,
+              ROUND(CAST(AVG(systolic_bp) AS numeric), 1) as systolic_bp,
+              ROUND(CAST(AVG(diastolic_bp) AS numeric), 1) as diastolic_bp
+           FROM vitals
+           WHERE patient_id = ?
+             AND recorded_at >= ?
+             AND recorded_at <= ?
+           GROUP BY to_char(recorded_at, 'YYYY-MM-DD"T"HH24:MI:00')
+           ORDER BY recorded_at ASC""",
+        (patient_id, start_prefix, end_prefix + ":59"),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_latest_vitals_map() -> dict:
+    """Return a dict of patient_id -> latest vitals (for WebSocket snapshot)."""
+    patients = get_all_patients()
+    result = {}
+    for p in patients:
+        result[p["id"]] = {
+            "id": p["id"],
+            "patient_id": p["id"],
+            "name": p["name"],
+            "age": p["age"],
+            "condition": p["condition"],
+            "cerner_patient_id": p.get("cerner_patient_id"),
+            "heart_rate": p["heart_rate"],
+            "spo2": p["spo2"],
+            "temperature": p["temperature"],
+            "respiratory_rate": p["respiratory_rate"],
+            "systolic_bp": p["systolic_bp"],
+            "diastolic_bp": p["diastolic_bp"],
+            "recorded_at": p["recorded_at"],
+        }
     return result

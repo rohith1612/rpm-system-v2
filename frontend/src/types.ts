@@ -7,6 +7,7 @@ export interface Patient {
   name: string;
   age: number | null;
   condition: string | null;
+  cerner_patient_id?: string | null;
   registered_at: string | null;
   heart_rate: number | null;
   spo2: number | null;
@@ -17,8 +18,6 @@ export interface Patient {
   recorded_at: string | number | null;
   recent_hr: number[] | null;
   ecg?: EcgPayload | null;
-  room?: string | null;
-  last_updated?: number | string | null;
 }
 
 export interface VitalReading {
@@ -106,8 +105,7 @@ export type VitalKey =
   | "spo2"
   | "temperature"
   | "respiratory_rate"
-  | "systolic_bp"
-  | "diastolic_bp";
+  | "blood_pressure";
 
 export interface VitalConfig {
   key: VitalKey;
@@ -120,14 +118,22 @@ export interface VitalConfig {
   critHigh: number | null;
 }
 
+export const SYS_BP_CONFIG = { key: "systolic_bp" as any, label: "Systolic BP", unit: "mmHg", icon: "SYS", warnLow: 95, critLow: 80, warnHigh: 140, critHigh: 170 };
+export const DIA_BP_CONFIG = { key: "diastolic_bp" as any, label: "Diastolic BP", unit: "mmHg", icon: "DIA", warnLow: 55, critLow: 45, warnHigh: 90, critHigh: 100 };
+
 export const VITAL_CONFIGS: VitalConfig[] = [
   { key: "heart_rate", label: "Heart Rate", unit: "bpm", icon: "HR", warnLow: 55, critLow: 45, warnHigh: 110, critHigh: 130 },
   { key: "spo2", label: "SpO₂", unit: "%", icon: "O2", warnLow: 94, critLow: 90, warnHigh: null, critHigh: null },
   { key: "temperature", label: "Temperature", unit: "°C", icon: "TMP", warnLow: null, critLow: null, warnHigh: 37.5, critHigh: 38.5 },
   { key: "respiratory_rate", label: "Resp. Rate", unit: "br/min", icon: "RR", warnLow: 10, critLow: 8, warnHigh: 22, critHigh: 28 },
-  { key: "systolic_bp", label: "Systolic BP", unit: "mmHg", icon: "SYS", warnLow: 95, critLow: 80, warnHigh: 140, critHigh: 170 },
-  { key: "diastolic_bp", label: "Diastolic BP", unit: "mmHg", icon: "DIA", warnLow: 55, critLow: 45, warnHigh: 90, critHigh: 100 },
+  { key: "blood_pressure", label: "Blood Pressure", unit: "mmHg", icon: "BP", warnLow: null, critLow: null, warnHigh: null, critHigh: null },
 ];
+
+export function getVitalLabel(key: string): string {
+  if (key === "systolic_bp") return "Systolic BP";
+  if (key === "diastolic_bp") return "Diastolic BP";
+  return VITAL_CONFIGS.find(c => c.key === key)?.label || key;
+}
 
 export function getVitalStatus(config: VitalConfig, value: number | null): "normal" | "warning" | "critical" {
   if (value === null) return "normal";
@@ -146,5 +152,5 @@ export function isPatientActive(patient: Patient | null, now: number = Date.now(
   } else {
     timeMs = new Date(patient.recorded_at).getTime();
   }
-  return (now - timeMs) < 15000;
+  return (now - timeMs) < 60000;
 }

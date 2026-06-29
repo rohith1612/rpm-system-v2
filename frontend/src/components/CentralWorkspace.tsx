@@ -2,9 +2,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import VitalsPanel from "./VitalsPanel";
 import VitalChart from "./VitalChart";
 import EcgPanel from "./EcgPanel";
+import AiInsightsPanel from "./AiInsightsPanel";
 import type { Patient, VitalKey } from "../types";
 
-type TabKey = "vitals" | "ecg";
+type TabKey = "vitals" | "ecg" | "insights";
 
 interface Props {
   patient: Patient | null;
@@ -30,64 +31,61 @@ export default function CentralWorkspace({
   if (!patient) {
     return (
       <motion.div 
-        className="flex-1 flex flex-col items-center justify-center text-center p-8 select-none"
+        className="dashboard__empty"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
       >
-        <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 text-3xl shadow-sm mb-4">
-          👋
+        <div className="dashboard__empty-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+          </svg>
         </div>
-        <h2 className="text-lg font-bold text-slate-800 dark:text-white mb-1">Select a Patient</h2>
-        <p className="text-sm text-slate-500 dark:text-white max-w-sm">Choose a patient from the sidebar to view their real-time telemetry, vitals, and ECG monitor.</p>
+        <h2>Select a Patient</h2>
+        <p>Choose a patient from the sidebar to view their real-time vitals and ECG.</p>
       </motion.div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col gap-5 min-h-0">
-      {/* Toggle Tab Pill Header */}
-      <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl self-start shrink-0 shadow-sm border border-slate-200/40 dark:border-slate-700">
+    <div className="dashboard__center">
+      {/* Toggle Button Box */}
+      <div className="dashboard__tabs">
         <button
-          className={`relative flex items-center gap-2 px-6 py-2 rounded-xl text-xs font-bold transition-all ${
-            activeTab === "vitals" ? "text-slate-800 dark:text-white" : "text-slate-400 dark:text-white hover:text-slate-600 dark:text-white"
-          }`}
+          className={`dashboard__tab ${activeTab === "vitals" ? "dashboard__tab--active" : ""}`}
           onClick={() => setActiveTab("vitals")}
           id="tab-vitals"
         >
           {activeTab === "vitals" && (
             <motion.div
               layoutId="dashboard-active-tab"
-              className="absolute inset-0 bg-white rounded-xl shadow-sm -z-10 dark:bg-slate-700"
+              className="dashboard__tab-active-bg"
               initial={false}
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
             />
           )}
-          <span className="flex items-center gap-1.5 z-10 select-none">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <span className="dashboard__tab-content-inner">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
             </svg>
-            Vitals Panel
+            Vitals
           </span>
         </button>
-        
         <button
-          className={`relative flex items-center gap-2 px-6 py-2 rounded-xl text-xs font-bold transition-all ${
-            activeTab === "ecg" ? "text-slate-800 dark:text-white" : "text-slate-400 dark:text-white hover:text-slate-600 dark:text-white"
-          }`}
+          className={`dashboard__tab ${activeTab === "ecg" ? "dashboard__tab--active" : ""}`}
           onClick={() => setActiveTab("ecg")}
           id="tab-ecg"
         >
           {activeTab === "ecg" && (
             <motion.div
               layoutId="dashboard-active-tab"
-              className="absolute inset-0 bg-white rounded-xl shadow-sm -z-10 dark:bg-slate-700"
+              className="dashboard__tab-active-bg"
               initial={false}
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
             />
           )}
-          <span className="flex items-center gap-1.5 z-10 select-none">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <span className="dashboard__tab-content-inner">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
               <path d="M8 21h8" />
               <path d="M12 17v4" />
@@ -95,10 +93,31 @@ export default function CentralWorkspace({
             ECG Monitor
           </span>
         </button>
+        <button
+          className={`dashboard__tab ${activeTab === "insights" ? "dashboard__tab--active" : ""}`}
+          onClick={() => setActiveTab("insights")}
+          id="tab-insights"
+        >
+          {activeTab === "insights" && (
+            <motion.div
+              layoutId="dashboard-active-tab"
+              className="dashboard__tab-active-bg"
+              initial={false}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            />
+          )}
+          <span className="dashboard__tab-content-inner">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+              <circle cx="12" cy="12" r="4" />
+            </svg>
+            AI Insights
+          </span>
+        </button>
       </div>
 
-      {/* Tab Content Area */}
-      <div className="flex-1 flex flex-col min-h-0 relative">
+      {/* Tab Content */}
+      <div className="dashboard__tab-content relative">
         <AnimatePresence mode="wait">
           {activeTab === "vitals" && (
             <motion.div
@@ -107,7 +126,7 @@ export default function CentralWorkspace({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="flex flex-col gap-4 flex-1 min-h-0"
+              style={{ display: "flex", flexDirection: "column", gap: "16px", flex: 1 }}
             >
               <VitalsPanel
                 patient={patient}
@@ -116,7 +135,7 @@ export default function CentralWorkspace({
                 onPatientDeleted={onPatientDeleted}
                 isDataStale={isDataStale}
               />
-              <div className="flex-1 min-h-0">
+              <div className="dashboard__chart-wrapper">
                 <VitalChart
                   patient={patient}
                   selectedVital={selectedVital}
@@ -132,7 +151,7 @@ export default function CentralWorkspace({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="flex flex-col flex-1 min-h-0"
+              style={{ display: "flex", flexDirection: "column", flex: 1 }}
             >
               <EcgPanel 
                 patient={patient} 
@@ -143,9 +162,20 @@ export default function CentralWorkspace({
               />
             </motion.div>
           )}
+          {activeTab === "insights" && (
+            <motion.div
+              key="insights"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              style={{ display: "flex", flexDirection: "column", flex: 1 }}
+            >
+              <AiInsightsPanel patient={patient} isDataStale={isDataStale} />
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
     </div>
   );
 }
-

@@ -33,3 +33,9 @@ Thumbs.db
 logs/
 *.log
 npm-debug.log*
+
+# BMad / Agent
+.agent/
+_bmad/
+_bmad-output/
+

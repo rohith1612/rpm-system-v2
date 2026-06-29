@@ -11,7 +11,8 @@ import paho.mqtt.client as mqtt
 from backend.config import (MQTT_BROKER, MQTT_CLIENT_ID, MQTT_PORT,
                             MQTT_TOPIC_PATTERN)
 from backend.services.alert_service import check_vitals
-from backend.services.vitals_service import store_vitals
+from backend.services.vitals_service import store_vitals, store_ecg
+import time
 
 # Will be set by main.py on startup
 _event_loop = None
@@ -38,7 +39,6 @@ def _on_connect(client, userdata, flags, reason_code, properties):
 def _on_message(client, userdata, msg):
     try:
         payload = json.loads(msg.payload.decode())
-        print(f"[MQTT DEBUG] Received message on topic: {msg.topic}")
 
         # Topic format: rpm/{session_id}/{patient_id}/{type}
         parts = msg.topic.split("/")
@@ -51,28 +51,28 @@ def _on_message(client, userdata, msg):
 
         payload["patient_id"] = patient_id
 
-        # Verify patient exists in DB before processing
-        from backend.services.vitals_service import get_patient
-        if not get_patient(patient_id):
-            print(f"[MQTT DEBUG] Ignored message for {patient_id} - not found in DB")
+        # Verify patient is assigned to a bed before processing
+        from backend.services.bed_service import get_active_patient_ids
+        if patient_id not in get_active_patient_ids():
             return
-            
-        print(f"[MQTT DEBUG] Processing {msg_type} for {patient_id}")
 
         if msg_type == "ecg":
-            # ECG is real-time only — broadcast to WebSocket, no DB storage
+            # ECG is real-time only — broadcast to WebSocket, and store in memory buffer
+            ws_message = {
+                "type": "ecg",
+                "patient_id": patient_id,
+                "heart_rate": payload.get("heart_rate"),
+                "pr_interval": payload.get("pr_interval"),
+                "qrs_duration": payload.get("qrs_duration"),
+                "qt_interval": payload.get("qt_interval"),
+                "qtc_interval": payload.get("qtc_interval"),
+                "st_offset": payload.get("st_offset"),
+                "rhythm": payload.get("rhythm"),
+            }
+            
+            store_ecg(patient_id, ws_message, time.time())
+            
             if _broadcast_fn and _event_loop:
-                ws_message = {
-                    "type": "ecg",
-                    "patient_id": patient_id,
-                    "heart_rate": payload.get("heart_rate"),
-                    "pr_interval": payload.get("pr_interval"),
-                    "qrs_duration": payload.get("qrs_duration"),
-                    "qt_interval": payload.get("qt_interval"),
-                    "qtc_interval": payload.get("qtc_interval"),
-                    "st_offset": payload.get("st_offset"),
-                    "rhythm": payload.get("rhythm"),
-                }
                 asyncio.run_coroutine_threadsafe(_broadcast_fn(ws_message), _event_loop)
         else:
             # Vitals: store + check alerts + broadcast
@@ -111,7 +111,10 @@ def start_mqtt_listener():
     client = mqtt.Client(
         callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
         client_id=MQTT_CLIENT_ID,
+        transport="websockets" if MQTT_PORT in (8083, 8084) else "tcp",
     )
+    if MQTT_PORT in (8883, 8084):
+        client.tls_set()
     client.on_connect = _on_connect
     client.on_message = _on_message
 

@@ -16,8 +16,6 @@ interface Props {
   isDataStale?: boolean;
 }
 
-// Base scale constants
-const BASE_PX_PER_MS = 0.25;
 const BASE_GRID_SMALL = 10;
 const BASE_GRID_LARGE = 50;
 
@@ -145,6 +143,7 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
   const ecgRef = useRef(ecg);
   const patientRef = useRef(patient);
   const isDataStaleRef = useRef(isDataStale);
+  const bufferRef = useRef<number[]>([]);
 
   // Keep data fresh for the animation loop
   useEffect(() => {
@@ -152,6 +151,12 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
     patientRef.current = patient;
     isDataStaleRef.current = isDataStale;
   }, [ecg, patient, isDataStale]);
+
+  // Clear ECG history buffer and reset cycle offset when switching patients, wave type, or lead configurations
+  useEffect(() => {
+    bufferRef.current = [];
+    offsetRef.current = 0;
+  }, [patient?.id, waveType, lead]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -175,11 +180,10 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
 
     const gridSmall = BASE_GRID_SMALL * scaleFactor;
     const gridLarge = BASE_GRID_LARGE * scaleFactor;
-    const scrollSpeed = BASE_PX_PER_MS * scaleFactor;
 
-    // Background (ECG Paper White or Dark Slate)
-    const isDark = document.documentElement.classList.contains("dark");
-    ctx.fillStyle = isDark ? "#0f172a" : "#ffffff";
+
+    // Background (ECG Paper White)
+    ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, W, H);
 
     // Draw grid (Medical Pink)
@@ -257,84 +261,57 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
       midY = lead === "aVR" ? H * 0.35 : H * 0.65;
       ampScale = 140 * scaleFactor;
     } else if (waveType === "pleth") {
-      midY = H * 0.42; // Perfectly symmetric
-      ampScale = Math.min(H * 0.20, 75 * scaleFactor);
+      midY = H * 0.5; // Perfectly symmetric
+      ampScale = 180 * scaleFactor;
       const p = patientRef.current;
       const spo2 = p?.spo2 ?? 98;
-      labelText = stale
-        ? `--% SpO2 | Pleth`
-        : `${spo2}% SpO2 | Pleth`;
+      labelText = stale ? `--% SpO2 | Pleth` : `${spo2}% SpO2 | Pleth`;
     } else if (waveType === "resp") {
-      midY = H * 0.42; // Perfectly symmetric
-      ampScale = Math.min(H * 0.18, 65 * scaleFactor);
+      midY = H * 0.5; // Perfectly symmetric
+      ampScale = 180 * scaleFactor;
       const p = patientRef.current;
       const respRate = p?.respiratory_rate ?? 16;
       cycleMs = (60 / Math.max(1, respRate)) * 1000;
-      labelText = stale
-        ? `-- Br/min | Resp`
-        : `${respRate} Br/min | Resp`;
+      labelText = stale ? `-- Br/min | Resp` : `${respRate} Br/min | Resp`;
     }
 
     // Draw waveform
     if (!stale) {
-      // Advance time by ~16ms per frame (60 FPS) ONLY if active
+      // Advance time by ~16ms per frame (60 FPS)
       offsetRef.current += 16;
+      const t_global = offsetRef.current;
+      const beatMs = ((t_global % cycleMs) + cycleMs) % cycleMs;
+      let amp = 0;
+      if (hr <= 0) {
+        amp = 0;
+      } else if (waveType === "ecg") {
+        amp = ecgAmplitude(beatMs, cycleMs, prMs, qrsSec, stOff, lead);
+      } else if (waveType === "pleth") {
+        amp = plethAmplitude(beatMs, cycleMs);
+      } else {
+        amp = respAmplitude(beatMs, cycleMs);
+      }
+      // Push new amplitude into circular buffer
+      const buf = bufferRef.current;
+      buf.push(amp);
+      if (buf.length > Math.floor(W)) {
+        buf.shift();
+      }
 
+      // Render waveform from buffer
       ctx.beginPath();
       ctx.strokeStyle = strokeColor;
       ctx.lineWidth = 2.5;
       ctx.lineJoin = "round";
       ctx.lineCap = "round";
-
-      const t_global = offsetRef.current;
-      const penX = (t_global * scrollSpeed) % W;
-      const gapWidth = 30; // Erase bar width in pixels
-
-      let lastInGap = true;
-
-      for (let px = 0; px < W; px++) {
-        let inGap = false;
-        if (px > penX && px < penX + gapWidth) {
-          inGap = true;
-        }
-        if (penX + gapWidth > W && px < (penX + gapWidth) % W) {
-          inGap = true;
-        }
-
-        if (inGap) {
-          lastInGap = true;
-          continue;
-        }
-
-        let t_px;
-        if (px <= penX) {
-          t_px = t_global - (penX - px) / scrollSpeed;
+      for (let i = 0; i < buf.length; i++) {
+        const x = i;
+        const y = midY - buf[i] * ampScale;
+        if (i === 0) {
+          ctx.moveTo(x, y);
         } else {
-          t_px = t_global - (penX - px + W) / scrollSpeed;
+          ctx.lineTo(x, y);
         }
-
-        const beatMs = ((t_px % cycleMs) + cycleMs) % cycleMs;
-
-        let amp = 0;
-        if (hr <= 0) {
-          // Asystole / Flatline
-          amp = 0;
-        } else if (waveType === "ecg") {
-          amp = ecgAmplitude(beatMs, cycleMs, prMs, qrsSec, stOff, lead);
-        } else if (waveType === "pleth") {
-          amp = plethAmplitude(beatMs, cycleMs);
-        } else if (waveType === "resp") {
-          amp = respAmplitude(beatMs, cycleMs);
-        }
-
-        const y = midY - amp * ampScale;
-
-        if (lastInGap || px === 0) {
-          ctx.moveTo(px, y);
-        } else {
-          ctx.lineTo(px, y);
-        }
-        lastInGap = false;
       }
       ctx.stroke();
     } else {
@@ -353,21 +330,31 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
     }
 
     // Labels and Values
-    const fontSize = Math.max(10, Math.round(14 * scaleFactor));
+    const fontSize = Math.max(10, Math.round(15 * scaleFactor)); // slightly larger for better readability
     ctx.font = `bold ${fontSize}px var(--font-mono, 'Consolas', monospace)`;
 
-    // Draw a pill background for text readability over the grid
-    ctx.fillStyle = isDark ? "rgba(15, 23, 42, 0.85)" : "rgba(255, 255, 255, 0.85)";
+    // Draw a white pill background for text readability over the grid
+    ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
     ctx.beginPath();
-    const pillW = fontSize * 13;
+    const pillW = fontSize * 15; // increased width for longer text
     const pillH = fontSize * 3.4;
     ctx.roundRect(5, 5, pillW, pillH, 6);
     ctx.fill();
 
-    ctx.fillStyle = isDark ? "#f8fafc" : "#0f172a";
+    ctx.fillStyle = "#0f172a";
     ctx.fillText(labelText, 12, 5 + fontSize * 1.3);
     ctx.fillStyle = "#64748b";
     ctx.fillText(e?.rhythm ?? "---", 12, 5 + fontSize * 2.7);
+
+    // BPM display on the right side
+    ctx.fillStyle = "#0f172a";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "top";
+    ctx.font = `bold ${fontSize}px var(--font-mono, 'Consolas', monospace)`;
+    ctx.fillText(`${hr} BPM`, W - 10, 5);
+    // Reset alignment for subsequent drawing
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
 
     // Calibration Specs at Bottom Right
     const calibFont = Math.max(9, Math.round(11 * scaleFactor));

@@ -246,3 +246,37 @@
   font-size: 13px;
   margin: 0;
 }
+
+/* ── Responsive Header Sizing ── */
+.dashboard__cerner-text-short {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .dashboard__header {
+    height: auto;
+    min-height: 52px;
+    padding: 1.5% 3%; /* Scale spacing using percentage rules */
+  }
+  
+  .dashboard__title {
+    font-size: 11px; /* get smaller */
+    line-height: 1.2;
+  }
+  
+  .dashboard__title-word {
+    display: block; /* split into three lines */
+  }
+  
+  .dashboard__cerner-text-full {
+    display: none;
+  }
+  
+  .dashboard__cerner-text-short {
+    display: inline; /* show only CERNER */
+  }
+  
+  .dashboard__status {
+    gap: 8px; /* scale gap down */
+  }
+}

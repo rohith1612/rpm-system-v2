@@ -4,6 +4,7 @@ Publishes each patient's vitals to the EMQX public broker.
 """
 import json
 import time
+import uuid
 import paho.mqtt.client as mqtt
 
 BROKER = "broker.emqx.io"
@@ -15,11 +16,14 @@ class MQTTPublisher:
 
     def __init__(self, session_id: str):
         self.session_id = session_id
-        self.client_id = f"rpm-simulator-{session_id}"
+        self.client_id = f"rpm-simulator-{session_id}-simumon"
         self.client = mqtt.Client(
             callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
             client_id=self.client_id,
+            transport="websockets" if PORT in (8083, 8084) else "tcp",
         )
+        if PORT in (8883, 8084):
+            self.client.tls_set()
         self._connected = False
 
         self.client.on_connect = self._on_connect

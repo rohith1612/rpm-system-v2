@@ -21,15 +21,29 @@
   opacity: 0;
 }
 
+.patient-list__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--slate-200);
+  padding: 0 16px 12px;
+  margin-top: -16px;
+  padding-top: 16px;
+  flex-shrink: 0;
+}
+
+.patient-list__header .patient-list__title {
+  border-bottom: none;
+  padding: 0;
+}
+
 .patient-list__title {
   font-size: 12px;
   font-weight: 600;
   color: var(--slate-500);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 0 16px 12px;
   margin: 0;
-  border-bottom: 1px solid var(--slate-200);
 }
 
 .patient-list__empty {

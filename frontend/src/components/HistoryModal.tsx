@@ -183,15 +183,38 @@ export default function HistoryModal({ patient, selectedVital: initialVital, onC
                     boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
                   }}
                 />
-                <Line
-                  type="monotone"
-                  dataKey={activeVital}
-                  stroke={LINE_COLORS[activeVital] || "#0366d6"}
-                  strokeWidth={2}
-                  dot={true}
-                  connectNulls={false}
-                  name={`${config?.label || ""} (${config?.unit || ""})`}
-                />
+                {activeVital === "blood_pressure" ? (
+                  <>
+                    <Line
+                      type="monotone"
+                      dataKey="systolic_bp"
+                      stroke={LINE_COLORS.systolic_bp || "#d73a49"}
+                      strokeWidth={2}
+                      dot={true}
+                      connectNulls={false}
+                      name="Systolic BP"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="diastolic_bp"
+                      stroke={LINE_COLORS.diastolic_bp || "#0366d6"}
+                      strokeWidth={2}
+                      dot={true}
+                      connectNulls={false}
+                      name="Diastolic BP"
+                    />
+                  </>
+                ) : (
+                  <Line
+                    type="monotone"
+                    dataKey={activeVital}
+                    stroke={LINE_COLORS[activeVital] || "#0366d6"}
+                    strokeWidth={2}
+                    dot={true}
+                    connectNulls={false}
+                    name={`${config?.label || ""} (${config?.unit || ""})`}
+                  />
+                )}
               </LineChart>
             </ResponsiveContainer>
           )}
