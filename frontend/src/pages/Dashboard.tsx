@@ -6,9 +6,11 @@ import { useWebSocket } from "../hooks/useWebSocket";
 import PatientList from "../components/PatientList";
 import CentralWorkspace from "../components/CentralWorkspace";
 import AlertsSidebar from "../components/AlertsSidebar";
-import AddPatientCard from "../components/AddPatientCard";
+import CernerSearch from "../components/CernerSearch";
+import EcgWaveform from "../components/EcgWaveform";
 import { isPatientActive, VITAL_CONFIGS, getVitalStatus } from "../types";
 import type { VitalKey, Patient } from "../types";
+import { cn } from "../lib/utils";
 
 type TabKey = "vitals" | "ecg";
 
@@ -40,8 +42,6 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<TabKey>("vitals"); // Default modal to Vitals Tab
 
   // Search & Navigation States
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchDropdownOpen, setSearchDropdownOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [showAllInList, setShowAllInList] = useState(false);
 
@@ -49,8 +49,6 @@ export default function Dashboard() {
   const isMobile = window.innerWidth <= 768;
   const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobile);
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
-
-  const searchRef = useRef<HTMLDivElement>(null);
 
   // Theme Toggle State
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -88,17 +86,6 @@ export default function Dashboard() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  // Close search dropdown on click outside
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setSearchDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, []);
-
   // Keyboard navigation for Modal
   useEffect(() => {
     if (!selectedId) return;
@@ -134,17 +121,8 @@ export default function Dashboard() {
     setDraggedIdx(null);
   };
 
-  // Search Filtering
+  // List Filtering
   const patientsList = useMemo(() => Object.values(patients), [patients]);
-  const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    const term = searchQuery.toLowerCase();
-    return patientsList.filter(p =>
-      p.name?.toLowerCase().includes(term) ||
-      p.id?.toLowerCase().includes(term) ||
-      p.room?.toLowerCase().includes(term)
-    );
-  }, [patientsList, searchQuery]);
 
   // Actions
   const handleAddPatient = (pid: string) => {
@@ -170,8 +148,8 @@ export default function Dashboard() {
 
   const selectedPatient = selectedId ? patients[selectedId] || null : null;
 
-  const pinnedPatientsData = pinnedPatients.map(id => patients[id]).filter(Boolean);
-  const listPatients = showAllInList ? patientsList : pinnedPatientsData;
+  const pinnedPatientsData = Object.values(patients);
+  const listPatients = patientsList;
 
   return (
     <div className="flex h-full bg-slate-50 dark:bg-slate-900 font-sans overflow-hidden select-none relative transition-colors duration-300">
@@ -216,74 +194,9 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Central Autocomplete Search Bar */}
-          <div className="flex-1 max-w-3xl mx-6 relative" ref={searchRef}>
-            <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
-              <span className="text-slate-400 dark:text-white text-sm mr-2">🔍</span>
-              <input
-                type="text"
-                placeholder="Search patient to add to dashboard..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setSearchDropdownOpen(true);
-                }}
-                onFocus={() => setSearchDropdownOpen(true)}
-                className="w-full bg-transparent outline-none text-xs text-slate-600 dark:text-white placeholder-slate-400"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="text-slate-400 dark:text-white hover:text-slate-600 dark:text-white text-xs px-1"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-
-            {/* Dropdown Menu */}
-            {searchDropdownOpen && searchQuery.trim() && (
-              <div className="absolute top-full left-0 w-full bg-white border border-slate-100 rounded-2xl shadow-xl mt-1.5 z-20 max-h-60 overflow-y-auto divide-y divide-slate-50 dark:bg-transparent dark:border-white/10">
-                {searchResults.length === 0 ? (
-                  <div className="px-4 py-3 text-xs text-slate-400 dark:text-white text-center italic">No patients found</div>
-                ) : (
-                  searchResults.map(p => {
-                    const active = isPatientActive(p, now);
-                    const status = getPatientOverallStatus(p);
-                    const dotClass = !active
-                      ? "bg-slate-300"
-                      : status === "critical"
-                        ? "bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.5)] animate-pulse"
-                        : status === "warning"
-                          ? "bg-amber-500"
-                          : "bg-emerald-500";
-
-                    return (
-                      <div
-                        key={p.id}
-                        onClick={() => {
-                          handleAddPatient(p.id);
-                          setSearchQuery("");
-                          setSearchDropdownOpen(false);
-                        }}
-                        className="px-4 py-2.5 hover:bg-slate-50/60 transition-colors flex items-center justify-between cursor-pointer"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-400 to-indigo-600 text-white text-[10px] font-bold flex items-center justify-center">
-                            {p.name ? p.name.charAt(0).toUpperCase() : "P"}
-                          </div>
-                          <div>
-                            <div className="text-xs font-bold text-slate-700 dark:text-white">{p.name || p.id}</div>
-                            <div className="text-[9px] text-slate-400 dark:text-white font-mono mt-0.5">Room {p.room || "—"} • {p.id}</div>
-                          </div>
-                        </div>
-                        <span className={`w-2.5 h-2.5 rounded-full ${dotClass}`} />
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            )}
+          {/* Cerner Sandbox Search Component */}
+          <div className="flex-1 max-w-3xl mx-6 flex justify-center">
+            <CernerSearch />
           </div>
 
           {/* Right: View Toggle, Notifications Badge, Avatar */}
@@ -337,7 +250,6 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* Scrollable Main Area */}
         <main className="flex-1 overflow-y-auto p-6 bg-slate-50/50 dark:bg-slate-900/50 transition-colors duration-300">
 
           {view === "flashcard" ? (
@@ -353,12 +265,12 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 pb-20">
-                {/* Add New Patient Flashcard */}
-                <AddPatientCard onPatientAdded={(id) => handleAddPatient(id)} />
+
 
                 {pinnedPatientsData.map((p, index) => {
                   const active = isPatientActive(p, now);
                   const status = getPatientOverallStatus(p);
+                  const dotClass = status === "critical" ? "bg-red-500 animate-pulse" : status === "warning" ? "bg-amber-500" : "bg-emerald-500";
                   return (
                     <div
                       key={p.id}
@@ -371,42 +283,39 @@ export default function Dashboard() {
                         setSelectedId(p.id);
                         setActiveTab("vitals");
                       }}
-                      className={`bg-white dark:bg-transparent rounded-2xl border p-4 flex flex-col justify-between hover:shadow-lg cursor-pointer transition-all duration-300 relative select-none min-h-[220px] ${draggedIdx === index ? "opacity-40" : "opacity-100"
-                        } ${active
-                          ? status === "critical"
-                            ? "border-red-500 dark:border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.5)] animate-[pulse_2s_infinite]"
-                            : status === "warning"
-                              ? "border-yellow-500 dark:border-yellow-400 shadow-[0_0_15px_rgba(234,179,8,0.4)]"
-                              : "border-green-500 dark:border-green-400 shadow-[0_0_15px_rgba(34,197,94,0.3)]"
-                          : "border-slate-100 dark:border-white/10 shadow-sm"
-                        }`}
+                      className={cn(
+                        "relative flex flex-col backdrop-blur-xl bg-white/70 dark:bg-slate-900/60 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-white/20 dark:border-white/10 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl",
+                        draggedIdx === index ? "opacity-40" : "opacity-100",
+                        !active ? "border-slate-200 dark:border-slate-700 opacity-60"
+                          : status === "critical" ? "border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.2)]"
+                            : status === "warning" ? "border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.15)]"
+                              : "border-emerald-500/30"
+                      )}
                     >
-                      {/* Card Header */}
-                      <div className="flex items-start justify-between border-b border-slate-100 pb-4 mb-5">
-                        <div>
-                          <div className="text-lg font-bold text-slate-800 dark:text-white hover:text-indigo-600 truncate max-w-[180px]">
-                            {p.name || p.id}
+                      {/* Card Content */}
+                      <div className="p-5 flex-1 flex flex-col">
+                        {/* Header: Name, Room, Status Dot */}
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-100 to-blue-100 dark:from-indigo-900 dark:to-blue-900 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold uppercase text-lg border border-indigo-200 dark:border-indigo-800">
+                              {p.name ? p.name.charAt(0) : "P"}
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-slate-800 dark:text-white text-lg leading-tight tracking-tight">{p.name || p.id}</h3>
+                              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Room {p.room || "—"} • ID: {p.id}</p>
+                            </div>
                           </div>
-
-                          <div className="text-sm font-medium text-slate-500 dark:text-white mt-1">
-                            {p.room ? `Room ${p.room}` : p.id}
+                          <div className="flex items-center gap-2">
+                            <span className={cn("text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border", 
+                              status === "critical" ? "bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400" :
+                              status === "warning" ? "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400" :
+                              "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400"
+                            )}>
+                              {status}
+                            </span>
+                            <span className={cn("w-3 h-3 rounded-full", active ? dotClass : "bg-slate-300")} />
                           </div>
                         </div>
-
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const next = pinnedPatients.filter(id => id !== p.id);
-                            updatePinnedPatients(next);
-                            showToast(`${p.name || p.id} removed from dashboard`);
-                          }}
-                          className="text-slate-400 dark:text-white hover:text-red-500 font-bold text-lg p-2"
-                          title="Unpin patient card"
-                        >
-                          ✕
-                        </button>
-                      </div>
-
 
                       {/* Vitals metrics */}
                       <div className="space-y-4 mb-5">
@@ -469,18 +378,12 @@ export default function Dashboard() {
                         </div>
 
                       </div>
-                      {/* Status indicator bar */}
-                      <div className="flex items-center justify-between border-t border-slate-50 pt-2 text-[10px] font-bold font-mono uppercase tracking-wider">
-                        <span className={`flex items-center gap-1 ${!active ? "text-slate-400 dark:text-white"
-                          : status === "critical" ? "text-red-500"
-                            : status === "warning" ? "text-amber-500"
-                              : "text-emerald-500"
-                          }`}>
-                          ● {!active ? "INACTIVE" : status}
-                        </span>
-                        <span className="text-slate-400 dark:text-white font-normal">
-                          {p.last_updated ? new Date(p.last_updated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "—"}
-                        </span>
+
+                      {/* Small ECG Waveform Canvas */}
+                      <div className="h-[90px] bg-slate-900 rounded-xl overflow-hidden mb-3 relative shadow-inner">
+                         <EcgWaveform ecg={p.ecg} patient={p} waveType="ecg" lead="II" isDataStale={!active} />
+                      </div>
+                      
                       </div>
                     </div>
                   );

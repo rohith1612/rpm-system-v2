@@ -3,6 +3,9 @@ Centralized configuration for the Remote Patient Monitoring backend.
 """
 
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ── MQTT ──────────────────────────────────────────────
 MQTT_BROKER = "broker.emqx.io"
@@ -14,9 +17,15 @@ MQTT_TOPIC_PATTERN = f"rpm/{MQTT_SESSION_ID}/+/#"
 MQTT_CLIENT_ID = f"rpm-backend-{MQTT_SESSION_ID}"
 
 # ── PostgreSQL ────────────────────────────────────────
-DATABASE_URL = (
+DATABASE_URL = os.environ.get(
+    "DATABASE_URL", 
     "postgresql+psycopg2://postgres:1234@localhost:5432/iomt-db"
 )
+
+# ── Cerner SMART on FHIR ──────────────────────────────
+CERNER_SYSTEM_CLIENT_ID = os.environ.get("CERNER_SYSTEM_CLIENT_ID")
+CERNER_SYSTEM_CLIENT_SECRET = os.environ.get("CERNER_SYSTEM_CLIENT_SECRET")
+CERNER_FHIR_BASE_URL = os.environ.get("CERNER_FHIR_BASE_URL")
 
 # ── Alert Thresholds ──────────────────────────────────
 ALERT_THRESHOLDS = {

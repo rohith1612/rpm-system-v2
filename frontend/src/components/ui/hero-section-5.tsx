@@ -108,6 +108,47 @@ export function HeroSection() {
                         </div>
                     </div>
                 </section>
+                
+                <section className="bg-background py-20">
+                    <div className="w-full px-12 lg:px-20 mx-auto max-w-7xl">
+                        <div className="text-center mb-16">
+                            <h2 className="text-3xl font-bold text-white mb-4">Enterprise-Grade Architecture</h2>
+                            <p className="text-muted-foreground max-w-2xl mx-auto">Built for massive scale and absolute clinical reliability.</p>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                            {/* Feature 1 */}
+                            <div className="relative group p-8 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md overflow-hidden hover:bg-white/10 transition-colors duration-500">
+                                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                                <div className="w-12 h-12 rounded-xl bg-indigo-500/20 flex items-center justify-center mb-6">
+                                    <svg className="w-6 h-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                                </div>
+                                <h3 className="text-xl font-bold text-white mb-3">Cerner SMART on FHIR</h3>
+                                <p className="text-slate-400 text-sm leading-relaxed">Direct integration with Cerner Sandbox. Search, import, and sync patients seamlessly using standard FHIR APIs and secure OAuth 2.0.</p>
+                            </div>
+
+                            {/* Feature 2 */}
+                            <div className="relative group p-8 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md overflow-hidden hover:bg-white/10 transition-colors duration-500">
+                                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                                <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center mb-6">
+                                    <svg className="w-6 h-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                                </div>
+                                <h3 className="text-xl font-bold text-white mb-3">Real-Time Telemetry</h3>
+                                <p className="text-slate-400 text-sm leading-relaxed">Sub-second latency IoT streaming via MQTT. Continuous high-fidelity ECG waveforms rendered natively on HTML5 Canvas at 60 FPS.</p>
+                            </div>
+
+                            {/* Feature 3 */}
+                            <div className="relative group p-8 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md overflow-hidden hover:bg-white/10 transition-colors duration-500">
+                                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                                <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center mb-6">
+                                    <svg className="w-6 h-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg>
+                                </div>
+                                <h3 className="text-xl font-bold text-white mb-3">NeonDB Scalability</h3>
+                                <p className="text-slate-400 text-sm leading-relaxed">Serverless Postgres at the edge. Smart 10-second batched buffered writes drastically reduce database load while maintaining data integrity.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </main>
         </>
     )

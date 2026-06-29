@@ -20,7 +20,7 @@ from backend.mqtt.listener import (
     set_event_loop,
     start_mqtt_listener,
 )
-from backend.routers import patients, vitals
+from backend.routers import patients, vitals, auth
 from backend.routers import websocket as ws_router
 
 
@@ -41,6 +41,17 @@ async def lifespan(app: FastAPI):
     # Start MQTT listener (background thread)
     mqtt_client = start_mqtt_listener()
 
+    # Start Cerner Sync Scheduler
+    from apscheduler.schedulers.background import BackgroundScheduler
+    from backend.services.cerner_sync import sync_vitals_to_cerner
+    from backend.mqtt.listener import flush_vitals_buffer
+    
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(flush_vitals_buffer, "interval", seconds=10)
+    scheduler.add_job(sync_vitals_to_cerner, "interval", minutes=1)
+    scheduler.start()
+    print("[RPM] Background scheduler started (flush: 10s, sync: 1m)")
+
     yield
 
     # ── Shutdown ──────────────────────────────────────
@@ -50,9 +61,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Remote Patient Monitoring API",
-    version="1.0.0",
-    lifespan=lifespan,
+    title="Clinical RPM API",
+    lifespan=lifespan
 )
 
 # ── CORS ──────────────────────────────────────────────
@@ -65,8 +75,9 @@ app.add_middleware(
 )
 
 # ── Routers ───────────────────────────────────────────
-app.include_router(patients.router)
 app.include_router(vitals.router)
+app.include_router(patients.router)
+app.include_router(auth.router)
 app.include_router(ws_router.router)
 
 

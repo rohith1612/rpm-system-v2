@@ -287,32 +287,11 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
       ctx.lineCap = "round";
 
       const t_global = offsetRef.current;
-      const penX = (t_global * scrollSpeed) % W;
-      const gapWidth = 30; // Erase bar width in pixels
-
-      let lastInGap = true;
 
       for (let px = 0; px < W; px++) {
-        let inGap = false;
-        if (px > penX && px < penX + gapWidth) {
-          inGap = true;
-        }
-        if (penX + gapWidth > W && px < (penX + gapWidth) % W) {
-          inGap = true;
-        }
-
-        if (inGap) {
-          lastInGap = true;
-          continue;
-        }
-
-        let t_px;
-        if (px <= penX) {
-          t_px = t_global - (penX - px) / scrollSpeed;
-        } else {
-          t_px = t_global - (penX - px + W) / scrollSpeed;
-        }
-
+        // Continuous scroll: newest data is at px = W, older data to the left
+        const t_px = t_global - (W - px) / scrollSpeed;
+        
         const beatMs = ((t_px % cycleMs) + cycleMs) % cycleMs;
 
         let amp = 0;
@@ -329,12 +308,11 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
 
         const y = midY - amp * ampScale;
 
-        if (lastInGap || px === 0) {
+        if (px === 0) {
           ctx.moveTo(px, y);
         } else {
           ctx.lineTo(px, y);
         }
-        lastInGap = false;
       }
       ctx.stroke();
     } else {

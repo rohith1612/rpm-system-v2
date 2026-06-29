@@ -160,6 +160,41 @@ def store_vitals(
         db.close()
 
 
+def store_vitals_bulk(data_list: list):
+    db = SessionLocal()
+    try:
+        vitals = []
+        for data in data_list:
+            timestamp = data.get("timestamp")
+            if timestamp:
+                if timestamp > 1000000000000:
+                    recorded_at = datetime.utcfromtimestamp(timestamp / 1000.0)
+                else:
+                    recorded_at = datetime.utcfromtimestamp(timestamp)
+            else:
+                recorded_at = datetime.utcnow()
+
+            vital = Vital(
+                patient_id=data["patient_id"],
+                heart_rate=data.get("heart_rate"),
+                spo2=data.get("spo2"),
+                temperature=data.get("temperature"),
+                respiratory_rate=data.get("respiratory_rate"),
+                systolic_bp=data.get("systolic_bp"),
+                diastolic_bp=data.get("diastolic_bp"),
+                recorded_at=recorded_at,
+            )
+            vitals.append(vital)
+
+        if vitals:
+            db.add_all(vitals)
+            db.commit()
+    except Exception as e:
+        print(f"[Vitals Service] Error bulk storing vitals: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
 def get_all_patients():
 
     db = SessionLocal()

@@ -2,7 +2,8 @@
  * REST API client for the Remote Patient Monitoring backend.
  */
 
-const API_BASE = "http://localhost:8000/api";
+export const API_BASE_URL = "http://localhost:8000";
+const API_BASE = `${API_BASE_URL}/api`;
 
 export async function fetchPatients() {
   const res = await fetch(`${API_BASE}/patients`);

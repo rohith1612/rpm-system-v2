@@ -11,7 +11,10 @@ import paho.mqtt.client as mqtt
 from backend.config import (MQTT_BROKER, MQTT_CLIENT_ID, MQTT_PORT,
                             MQTT_TOPIC_PATTERN)
 from backend.services.alert_service import check_vitals
-from backend.services.vitals_service import store_vitals
+import threading
+
+_vitals_buffer = []
+_buffer_lock = threading.Lock()
 
 # Will be set by main.py on startup
 _event_loop = None
@@ -75,9 +78,10 @@ def _on_message(client, userdata, msg):
                 }
                 asyncio.run_coroutine_threadsafe(_broadcast_fn(ws_message), _event_loop)
         else:
-            # Vitals: store + check alerts + broadcast
-            # 1. Store in database
-            store_vitals(payload)
+            # Vitals: store in buffer + check alerts + broadcast
+            # 1. Store in memory buffer
+            with _buffer_lock:
+                _vitals_buffer.append(payload)
 
             # 2. Check thresholds → generate alerts
             alerts = check_vitals(payload)
@@ -104,6 +108,22 @@ def _on_message(client, userdata, msg):
 
     except Exception as e:
         print(f"[MQTT] Error processing message: {e}")
+
+
+def flush_vitals_buffer():
+    global _vitals_buffer
+    with _buffer_lock:
+        if not _vitals_buffer:
+            return
+        vitals_to_store = _vitals_buffer
+        _vitals_buffer = []
+    
+    try:
+        from backend.services.vitals_service import store_vitals_bulk
+        store_vitals_bulk(vitals_to_store)
+        print(f"[MQTT] Flushed {len(vitals_to_store)} vitals to database.")
+    except Exception as e:
+        print(f"[MQTT] Failed to flush vitals buffer: {e}")
 
 
 def start_mqtt_listener():
