@@ -3,6 +3,7 @@ import { useUiStore } from '../store/uiStore';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useNavigate } from 'react-router-dom';
 import PatientModal from './PatientModal';
+import { deletePatient } from '../api';
 export default function PatientDrawer() {
   const { drawerOpen, armedPatientId, setArmedPatient } = useUiStore();
   const { patients } = useWebSocket();
@@ -20,6 +21,18 @@ export default function PatientDrawer() {
 
   const handleNavigateToPatient = (id: string) => {
     navigate(`/patient/${id}`);
+  };
+
+  const handleDeletePatient = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (window.confirm('Are you sure you want to delete this patient from the app?')) {
+      try {
+        await deletePatient(id);
+        if (armedPatientId === id) setArmedPatient(null);
+      } catch (err) {
+        console.error("Failed to delete patient", err);
+      }
+    }
   };
 
   return (
@@ -50,6 +63,15 @@ export default function PatientDrawer() {
                   <div className="pat-id">CERNER {patient.cerner_patient_id}</div>
                 )}
               </div>
+              <button 
+                className="delete-patient-btn"
+                onClick={(e) => handleDeletePatient(e, patient.id)}
+                title="Delete Patient"
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
             </div>
           );
         })}

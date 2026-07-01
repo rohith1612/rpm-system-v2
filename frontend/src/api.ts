@@ -76,7 +76,10 @@ export async function createPatient(data: { name: string; age: number; condition
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error("Failed to create patient");
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to create patient");
+  }
   return res.json();
 }
 
