@@ -16,7 +16,7 @@ class MQTTPublisher:
 
     def __init__(self, session_id: str):
         self.session_id = session_id
-        self.client_id = f"rpm-simulator-{session_id}-simumon"
+        self.client_id = f"rpm-simulator-{session_id}-simumon-{uuid.uuid4().hex[:8]}"
         self.client = mqtt.Client(
             callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
             client_id=self.client_id,

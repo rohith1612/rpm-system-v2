@@ -44,6 +44,15 @@ async def lifespan(app: FastAPI):
     # Start MQTT listener (background thread)
     mqtt_client = start_mqtt_listener()
 
+    # Start automatic Cerner FHIR sync (every 60 seconds)
+    from backend.config import ENABLE_CERNER_AUTO_SYNC
+    if ENABLE_CERNER_AUTO_SYNC:
+        try:
+            from backend.services.cerner_auto_sync import start_auto_sync
+            start_auto_sync()
+        except ImportError:
+            pass
+
     yield
 
     # ── Shutdown ──────────────────────────────────────

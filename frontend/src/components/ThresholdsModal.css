@@ -53,6 +53,8 @@
 .thresholds-table {
   width: 100%;
   border-collapse: collapse;
+  text-align: left;
+  color: var(--ink);
 }
 
 .thresholds-table th {

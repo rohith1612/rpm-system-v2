@@ -1,52 +1,274 @@
-.patient-modal {
-  max-width: 480px;
+/* LIQUID MORPHISM PATIENT MODAL */
+
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.patient-modal__content {
+.modal {
+  background: color-mix(in srgb, var(--bg-panel) 75%, transparent);
+  /* Liquid morphism glow */
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  width: 90%;
+  max-width: 550px;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  color: var(--ink);
+}
+
+.modal__header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 16px 16px 0 0;
+}
+
+.modal__header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--ink);
+}
+
+.modal__close {
+  background: none;
+  border: none;
+  color: var(--ink-dim);
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.modal__close:hover {
+  color: var(--ink);
+}
+
+.modal-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.modal-tab {
+  flex: 1;
+  padding: 16px;
+  background: none;
+  border: none;
+  color: var(--ink-dim);
+  cursor: pointer;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 13px;
+  letter-spacing: 1px;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.modal-tab:hover {
+  color: var(--ink);
+  background: var(--line-soft);
+}
+
+.modal-tab.active {
+  color: var(--green);
+  border-bottom-color: var(--green);
+  background: var(--green-dim);
+}
+
+.modal__content {
   padding: 24px;
 }
 
-.patient-modal__info-box {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--blue-50);
-  color: var(--blue-700);
-  padding: 12px 16px;
-  border-radius: 6px;
-  font-size: 13px;
+.form-group {
   margin-bottom: 20px;
 }
 
-.patient-modal__form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.patient-modal__control-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.patient-modal__control-group label {
-  font-size: 13px;
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--ink-dim);
   font-weight: 600;
-  color: var(--slate-700);
 }
 
-.patient-modal__control-group input {
-  padding: 8px 12px;
-  border: 1px solid var(--slate-300);
-  border-radius: 6px;
-  font-size: 14px;
+.form-group input {
+  width: 100%;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(0,0,0,0.2);
+  border-radius: 8px;
+  color: #000;
   font-family: inherit;
-  transition: border-color 0.2s;
+  font-size: 14px;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.patient-modal__control-group input:focus {
+.form-group input:focus {
   outline: none;
-  border-color: var(--blue-500);
-  box-shadow: 0 0 0 3px var(--blue-100);
+  border-color: var(--green);
+  box-shadow: 0 0 0 2px var(--green-dim);
+}
+
+.modal__footer {
+  padding: 20px 24px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 0 0 16px 16px;
+}
+
+.btn-cancel {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  transition: all 0.2s ease;
+}
+
+.btn-cancel:hover {
+  background: var(--line-soft);
+  color: var(--ink);
+}
+
+.btn-save {
+  background: var(--green);
+  color: #fff;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px var(--green-dim);
+}
+
+.btn-save:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+/* Cerner Search Styles */
+.search-row {
+  display: flex;
+  gap: 12px;
+}
+
+.search-row input {
+  flex: 1;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(0,0,0,0.2);
+  border-radius: 8px;
+  color: #000;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.search-row input:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px rgba(92, 194, 232, 0.2);
+}
+
+.btn-search {
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  padding: 0 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: filter 0.2s;
+}
+
+.btn-search:hover {
+  filter: brightness(1.1);
+}
+
+.cerner-results {
+  margin-top: 20px;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--line-soft);
+}
+
+.cerner-result-row {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background 0.2s;
+}
+
+.cerner-result-row:last-child {
+  border-bottom: none;
+}
+
+.cerner-result-row:hover {
+  background: var(--line);
+}
+
+.cerner-result-row .r-name {
+  font-weight: 600;
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.cerner-result-row .r-meta {
+  font-size: 12px;
+  color: var(--ink-dim);
+  margin-top: 4px;
+}
+
+.btn-import {
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  transition: filter 0.2s;
+}
+
+.btn-import:hover {
+  filter: brightness(1.1);
 }
