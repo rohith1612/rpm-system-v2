@@ -344,3 +344,17 @@ html[data-theme="light"] .mode-knob{transform:translateX(20px); background:var(-
   grid-template-columns: 240px 1fr;
   gap: 24px;
 }
+
+.token-expiry-badge {
+  background: var(--line);
+  color: var(--ink-dim);
+  font-size: 9.5px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  opacity: 0.75;
+  margin-left: 4px;
+  line-height: 1;
+  display: inline-block;
+  vertical-align: middle;
+}

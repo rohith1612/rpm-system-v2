@@ -4,6 +4,7 @@ Centralized configuration for the Remote Patient Monitoring backend.
 
 import os
 
+# Trigger backend configuration reload with fresh .env credentials
 # ── MQTT ──────────────────────────────────────────────
 MQTT_BROKER = "broker.emqx.io"
 MQTT_PORT = 1883

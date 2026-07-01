@@ -3,7 +3,7 @@ import { fetchBeds, assignBed, unassignBed } from '../api';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useUiStore } from '../store/uiStore';
 import { useNavigate } from 'react-router-dom';
-import { isPatientActive, getVitalStatus, VITAL_CONFIGS } from '../types';
+import { isPatientActive } from '../types';
 import PatientModal from '../components/PatientModal';
 
 export default function IcuFloor() {
@@ -144,7 +144,13 @@ export default function IcuFloor() {
       </div>
 
       {showPatientModal && (
-        <PatientModal onClose={() => setShowPatientModal(false)} />
+        <PatientModal 
+          onClose={() => setShowPatientModal(false)} 
+          onSaved={(patientId) => {
+            setArmedPatient(patientId);
+            setShowPatientModal(false);
+          }}
+        />
       )}
     </div>
   );

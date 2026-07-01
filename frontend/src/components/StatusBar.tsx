@@ -6,6 +6,7 @@ export default function StatusBar() {
   const { theme, toggleTheme } = useUiStore();
   const { connected } = useWebSocket();
   const [timeStr, setTimeStr] = useState('');
+  const [expiryMins, setExpiryMins] = useState<number | null>(null);
 
   useEffect(() => {
     const tick = () => {
@@ -17,6 +18,26 @@ export default function StatusBar() {
       h = h % 12;
       if (h === 0) h = 12;
       setTimeStr(`${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')} ${ap}`);
+
+      // Calculate token expiration
+      const expiresAtStr = sessionStorage.getItem("smart_expires_at");
+      if (expiresAtStr) {
+        const expiresAt = parseInt(expiresAtStr, 10);
+        const diffMs = expiresAt - Date.now();
+        
+        if (diffMs <= 0) {
+          // Token has expired! Clean context and trigger auto-relaunch
+          sessionStorage.removeItem("smart_access_token");
+          sessionStorage.setItem("smart_auto_launch", "true");
+          window.location.href = "/launch";
+          return;
+        }
+        
+        const diffMins = Math.max(0, Math.ceil(diffMs / 60000));
+        setExpiryMins(diffMins);
+      } else {
+        setExpiryMins(null);
+      }
     };
     tick();
     const interval = setInterval(tick, 1000);
@@ -38,7 +59,14 @@ export default function StatusBar() {
         )}
       </div>
       <div className="statusbar-right">
-        <span className="sb-item">{timeStr}</span>
+        <span className="sb-item">
+          {timeStr}
+          {expiryMins !== null && (
+            <span className="token-expiry-badge" title="OAuth Session Remaining Time">
+              {expiryMins}m
+            </span>
+          )}
+        </span>
         {connected ? (
           <span className="live-tag">
             <span className="blip"></span>LIVE
