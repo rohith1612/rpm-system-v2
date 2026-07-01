@@ -101,6 +101,12 @@ body{
   display:flex; align-items:center; justify-content:center; gap:7px; font-family:var(--font-body);
 }
 .add-patient-btn:hover{color:var(--green); border-color:var(--green);}
+.delete-patient-btn {
+  background: transparent; border: none; color: var(--ink-faint); cursor: pointer; padding: 4px; border-radius: 3px; display: flex; align-items: center; justify-content: center; margin-left: auto;
+}
+.delete-patient-btn:hover {
+  color: var(--red); background: var(--red-dim);
+}
 .map-hint{margin-top:10px; padding:9px; border:1px solid var(--amber); background:var(--amber-dim); color:var(--amber); font-family:var(--font-mono); font-size:9.5px; line-height:1.5; letter-spacing:.02em;}
 
 .pat-row.armed{outline:1px dashed var(--green); background:var(--amber-dim); border-left-color:var(--amber); animation:armedPulse 1.2s infinite;}

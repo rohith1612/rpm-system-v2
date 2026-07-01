@@ -256,9 +256,14 @@ async def create_new_patient(patient: PatientCreateUpdate):
     """Create a new patient."""
     from backend.services.vitals_service import create_patient, get_latest_vitals_map
     from backend.routers.websocket import broadcast
-    res = create_patient(patient.name, patient.age, patient.condition, patient.cerner_patient_id)
-    await broadcast({"type": "snapshot", "data": get_latest_vitals_map()})
-    return res
+    from fastapi import HTTPException
+    
+    try:
+        res = create_patient(patient.name, patient.age, patient.condition, patient.cerner_patient_id)
+        await broadcast({"type": "snapshot", "data": get_latest_vitals_map()})
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.put("/{patient_id}")
 async def update_existing_patient(patient_id: str, patient: PatientCreateUpdate):

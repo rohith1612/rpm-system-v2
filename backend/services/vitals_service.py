@@ -26,6 +26,12 @@ def _ensure_patient(conn, patient_id: str):
 def create_patient(name: str, age: int, condition: str, cerner_patient_id: str | None = None) -> dict:
     """Create a new patient with a random PD_XXXXX ID."""
     conn = get_connection()
+    
+    if cerner_patient_id:
+        existing = conn.execute("SELECT id FROM patients WHERE cerner_patient_id = ?", (cerner_patient_id,)).fetchone()
+        if existing:
+            raise Exception("A patient with this Cerner ID has already been imported.")
+            
     # Generate random 5-digit ID
     patient_id = f"PD_{random.randint(10000, 99999):05d}"
     
