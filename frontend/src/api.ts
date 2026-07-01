@@ -2,7 +2,14 @@
  * REST API client for the Remote Patient Monitoring backend.
  */
 
-const API_BASE = "http://localhost:8000/api";
+const getBackendHost = () => {
+  const envHost = (import.meta as any).env?.VITE_BACKEND_HOST;
+  if (envHost) return envHost;
+  const hostname = window.location.hostname;
+  return hostname === "localhost" || hostname === "127.0.0.1" ? "localhost" : hostname;
+};
+
+const API_BASE = `http://${getBackendHost()}:8000/api`;
 
 export async function fetchPatients() {
   const res = await fetch(`${API_BASE}/patients`);
