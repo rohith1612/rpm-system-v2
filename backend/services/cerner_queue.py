@@ -42,8 +42,8 @@ def enqueue_vitals(patient_id: str, cerner_patient_id: str, vitals: Dict[str, An
         "temperature": {
             "code": "8331-1",
             "display": "Oral temperature",
-            "unit": "degC",
-            "unit_code": "Cel",
+            "unit": "degF",
+            "unit_code": "[degF]",
             "integer": False
         },
         "respiratory_rate": {
@@ -59,8 +59,6 @@ def enqueue_vitals(patient_id: str, cerner_patient_id: str, vitals: Dict[str, An
     for key, spec in mappings.items():
         val = vitals.get(key)
         if val is not None:
-            if key == "temperature":
-                val = round((val - 32) * 5 / 9, 1)
             _sync_queue.put({
                 "patient_id": patient_id,
                 "cerner_patient_id": cerner_patient_id,
@@ -303,11 +301,21 @@ def _process_queue_item_with_retry(item: Dict[str, Any]):
                 success = True
             else:
                 item["retry_count"] += 1
+                if item["retry_count"] >= 3:
+                    print(f"[CERNER QUEUE] Max immediate retries reached (HTTP {resp.status_code}). Re-queueing to back of line.")
+                    item["retry_count"] = 0
+                    _sync_queue.put(item)
+                    break
                 print(f"[CERNER QUEUE] Write failed (HTTP {resp.status_code}). Retrying in 5 seconds...")
                 time.sleep(5.0)
                 
         except Exception as sync_err:
             item["retry_count"] += 1
+            if item["retry_count"] >= 3:
+                print(f"[CERNER QUEUE] Max immediate retries reached on exception ({sync_err}). Re-queueing to back of line.")
+                item["retry_count"] = 0
+                _sync_queue.put(item)
+                break
             print(f"[CERNER QUEUE] Request exception for Patient {patient_id}: {sync_err}. Retrying in 5 seconds...")
             time.sleep(5.0)
 
