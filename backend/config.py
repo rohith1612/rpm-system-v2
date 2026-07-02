@@ -26,8 +26,8 @@ ALERT_THRESHOLDS = {
     "temperature": {
         "warn_low": None,
         "crit_low": None,
-        "warn_high": 37.5,
-        "crit_high": 38.5,
+        "warn_high": 99.5,
+        "crit_high": 101.3,
     },
     "respiratory_rate": {
         "warn_low": 10,

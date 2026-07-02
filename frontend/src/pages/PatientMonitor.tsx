@@ -9,6 +9,7 @@ import EcgWaveform from '../components/EcgWaveform';
 import '../components/EcgWaveform.css';
 import HistoryModal from '../components/HistoryModal';
 import ThresholdsModal from '../components/ThresholdsModal';
+import CopyButton from '../components/CopyButton';
 
 type VitalKey = 'heart_rate' | 'spo2' | 'temperature' | 'respiratory_rate' | 'blood_pressure';
 
@@ -27,7 +28,7 @@ export default function PatientMonitor() {
   const [yScaleMode, setYScaleMode] = useState<'auto'|'fixed'>('auto');
   const [yMin, setYMin] = useState<number | ''>('');
   const [yMax, setYMax] = useState<number | ''>('');
-  const [timeFilter, setTimeFilter] = useState<'15'|'30'|'45'|'60'|'manual'>('60');
+  const [timeFilter, setTimeFilter] = useState<'5'|'15'|'30'|'60'|'manual'>('5');
   const [manualMinutes, setManualMinutes] = useState<number | ''>('');
   
   const patient = id ? patients[id] : null;
@@ -36,6 +37,7 @@ export default function PatientMonitor() {
   const storeEcg = useAppStore(state => state.latestEcg[id || '']);
   const ecg = storeEcg || patient?.ecg;
   const [historicalData, setHistoricalData] = useState<any[]>([]);
+  const [loadTime] = useState<number>(Date.now());
 
   useEffect(() => {
     if (id) {
@@ -63,7 +65,10 @@ export default function PatientMonitor() {
         <div className="identity" style={{ marginTop: '10px' }}>
           <div>
             <h1 style={{ display: 'inline' }}>{patient.name}</h1>
-            <span className="meta">{patient.age}y &middot; {patient.condition} &middot; ID {patient.id} {patient.cerner_patient_id ? `· CERNER ${patient.cerner_patient_id}` : ''}</span>
+            <span className="meta" style={{ display: 'inline-flex', alignItems: 'center' }}>
+              <span>{patient.age}y &middot; {patient.condition} &middot; CERNER {patient.id}</span>
+              <CopyButton text={patient.id} />
+            </span>
           </div>
           <div className="id-actions">
             <button className="ghost-btn icon-only" title="Settings" onClick={() => setShowSettings(true)}>
@@ -105,8 +110,49 @@ export default function PatientMonitor() {
   const filterMs = filterMinutes * 60 * 1000;
   
   // We limit to the last 500 points for performance, but only those within filterMs
-  const filteredData = allData.filter(d => d.timestampMs >= latestTimestamp - filterMs);
-  const chartData = filteredData.slice(-500);
+  const filteredData = allData.filter(d => d.timestampMs >= latestTimestamp - filterMs).slice(-500);
+
+  // Insert null-value break points (1m for DB history, 10s for live data)
+  const baseChartData: any[] = [];
+  for (let i = 0; i < filteredData.length; i++) {
+    if (i > 0) {
+      const gap = filteredData[i].timestampMs - filteredData[i - 1].timestampMs;
+      const isHistorical = filteredData[i - 1].timestampMs <= loadTime;
+      const gapLimit = isHistorical ? 60000 : 10000;
+      if (gap > gapLimit) {
+        baseChartData.push({
+          timestampMs: filteredData[i - 1].timestampMs + 1000,
+          heart_rate: null, spo2: null, temperature: null,
+          respiratory_rate: null, systolic_bp: null, diastolic_bp: null,
+        });
+      }
+    }
+    baseChartData.push(filteredData[i]);
+  }
+
+  // Map data for dashed (historical) and solid (live) rendering
+  const chartData = baseChartData.map((d, index) => {
+    const isHistorical = d.timestampMs <= loadTime;
+    const nextIsLive = index < baseChartData.length - 1 && baseChartData[index + 1].timestampMs > loadTime;
+    
+    const mapped = { ...d };
+    
+    if (selectedVital === 'blood_pressure') {
+      mapped.systolic_bp_historical = isHistorical ? d.systolic_bp : null;
+      mapped.systolic_bp_live = (!isHistorical || nextIsLive) ? d.systolic_bp : null;
+      mapped.diastolic_bp_historical = isHistorical ? d.diastolic_bp : null;
+      mapped.diastolic_bp_live = (!isHistorical || nextIsLive) ? d.diastolic_bp : null;
+    } else {
+      const val = d[selectedVital];
+      mapped[`${selectedVital}_historical`] = isHistorical ? val : null;
+      mapped[`${selectedVital}_live`] = (!isHistorical || nextIsLive) ? val : null;
+    }
+    return mapped;
+  });
+
+  // X-axis domain: exactly the selected time window
+  const xMax = latestTimestamp;
+  const xMin = xMax - filterMs;
 
   const getLineColor = (key: string) => {
     switch(key) {
@@ -118,6 +164,98 @@ export default function PatientMonitor() {
       default: return 'var(--accent)';
     }
   };
+
+  // Dynamic Y-axis scaling: use standard clinical ranges as defaults,
+  // but expand if real data exceeds those bounds.
+  const getYAxisDomain = (): [number | string, number | string] => {
+    if (yScaleMode === 'fixed') {
+      return [yMin === '' ? 'auto' : yMin, yMax === '' ? 'auto' : yMax];
+    }
+    const defaults: Record<string, [number, number]> = {
+      heart_rate: [70, 120],
+      spo2: [90, 100],
+      temperature: [96.0, 101.0],
+      respiratory_rate: [10, 25],
+      blood_pressure: [60, 160],
+    };
+    const [defaultMin, defaultMax] = defaults[selectedVital] || [0, 200];
+    const activeValues: number[] = [];
+    chartData.forEach((d: any) => {
+      if (selectedVital === 'blood_pressure') {
+        if (typeof d.systolic_bp === 'number') activeValues.push(d.systolic_bp);
+        if (typeof d.diastolic_bp === 'number') activeValues.push(d.diastolic_bp);
+      } else {
+        const val = d[selectedVital];
+        if (typeof val === 'number') activeValues.push(val);
+      }
+    });
+    if (activeValues.length === 0) return [defaultMin, defaultMax];
+    const dataMin = Math.min(...activeValues);
+    const dataMax = Math.max(...activeValues);
+    let finalMin = dataMin < defaultMin ? Math.floor(dataMin - 5) : defaultMin;
+    let finalMax = dataMax > defaultMax ? Math.ceil(dataMax + 5) : defaultMax;
+    if (selectedVital === 'spo2') finalMax = Math.min(finalMax, 100);
+    return [finalMin, finalMax];
+  };
+
+  const getStats = () => {
+    let min = Infinity;
+    let max = -Infinity;
+    let sum = 0;
+    let count = 0;
+    
+    let sysMin = Infinity, sysMax = -Infinity, sysSum = 0, sysCount = 0;
+    let diaMin = Infinity, diaMax = -Infinity, diaSum = 0, diaCount = 0;
+
+    chartData.forEach((d: any) => {
+      if (selectedVital === 'blood_pressure') {
+        const sys = d.systolic_bp_live ?? d.systolic_bp_historical;
+        const dia = d.diastolic_bp_live ?? d.diastolic_bp_historical;
+        
+        if (typeof sys === 'number') {
+          sysMin = Math.min(sysMin, sys);
+          sysMax = Math.max(sysMax, sys);
+          sysSum += sys;
+          sysCount++;
+        }
+        if (typeof dia === 'number') {
+          diaMin = Math.min(diaMin, dia);
+          diaMax = Math.max(diaMax, dia);
+          diaSum += dia;
+          diaCount++;
+        }
+      } else {
+        const val = d[`${selectedVital}_live`] ?? d[`${selectedVital}_historical`];
+        if (typeof val === 'number') {
+          min = Math.min(min, val);
+          max = Math.max(max, val);
+          sum += val;
+          count++;
+        }
+      }
+    });
+
+    if (selectedVital === 'blood_pressure') {
+      if (sysCount === 0 || diaCount === 0) return { min: '--', max: '--', avg: '--' };
+      const avgSys = Math.round(sysSum / sysCount);
+      const avgDia = Math.round(diaSum / diaCount);
+      return {
+        min: `${sysMin}/${diaMin}`,
+        max: `${sysMax}/${diaMax}`,
+        avg: `${avgSys}/${avgDia}`
+      };
+    } else {
+      if (count === 0) return { min: '--', max: '--', avg: '--' };
+      const avg = (sum / count).toFixed(1);
+      return {
+        min: min.toFixed(1),
+        max: max.toFixed(1),
+        avg
+      };
+    }
+  };
+
+  const stats = getStats();
 
   const vitalLabels: Record<VitalKey, string> = {
     'heart_rate': 'Heart Rate',
@@ -161,7 +299,7 @@ export default function PatientMonitor() {
           <XAxis 
             dataKey="timestampMs" 
             type="number"
-            domain={['dataMin', 'dataMax']}
+            domain={[xMin, xMax]}
             tickFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             stroke="var(--ink-dim)"
             tick={{ fontSize: 11, fill: 'var(--ink-dim)' }}
@@ -170,25 +308,46 @@ export default function PatientMonitor() {
           <YAxis 
             stroke="var(--ink-dim)" 
             tick={{ fontSize: 11, fill: 'var(--ink-dim)' }} 
-            domain={yScaleMode === 'fixed' ? [yMin === '' ? 'auto' : yMin, yMax === '' ? 'auto' : yMax] : ['auto', 'auto']} 
+            domain={getYAxisDomain()} 
+            allowDataOverflow={true}
           />
           <RechartsTooltip content={<CustomTooltip />} />
           
           {selectedVital === 'blood_pressure' ? (
             <>
-              <Line type="monotone" dataKey="systolic_bp" stroke="var(--red)" strokeWidth={2} dot={false} isAnimationActive={false} name="Systolic" />
-              <Line type="monotone" dataKey="diastolic_bp" stroke="var(--blue)" strokeWidth={2} dot={false} isAnimationActive={false} name="Diastolic" />
+              {/* Historical (Dashed) */}
+              <Line type="monotone" dataKey="systolic_bp_historical" stroke="var(--red)" strokeDasharray="5 5" strokeWidth={2} dot={false} isAnimationActive={false} connectNulls={false} name="Systolic (History)" />
+              <Line type="monotone" dataKey="diastolic_bp_historical" stroke="var(--blue)" strokeDasharray="5 5" strokeWidth={2} dot={false} isAnimationActive={false} connectNulls={false} name="Diastolic (History)" />
+              {/* Live (Solid) */}
+              <Line type="monotone" dataKey="systolic_bp_live" stroke="var(--red)" strokeWidth={2} dot={false} isAnimationActive={false} connectNulls={false} name="Systolic" />
+              <Line type="monotone" dataKey="diastolic_bp_live" stroke="var(--blue)" strokeWidth={2} dot={false} isAnimationActive={false} connectNulls={false} name="Diastolic" />
             </>
           ) : (
-            <Line 
-              type="monotone" 
-              dataKey={selectedVital} 
-              stroke={getLineColor(selectedVital)} 
-              strokeWidth={2} 
-              dot={false} 
-              isAnimationActive={false} 
-              name={vitalLabels[selectedVital]}
-            />
+            <>
+              {/* Historical (Dashed) */}
+              <Line 
+                type="monotone" 
+                dataKey={`${selectedVital}_historical`} 
+                stroke={getLineColor(selectedVital)} 
+                strokeDasharray="5 5"
+                strokeWidth={2} 
+                dot={false} 
+                isAnimationActive={false} 
+                connectNulls={false}
+                name={`${vitalLabels[selectedVital]} (History)`}
+              />
+              {/* Live (Solid) */}
+              <Line 
+                type="monotone" 
+                dataKey={`${selectedVital}_live`} 
+                stroke={getLineColor(selectedVital)} 
+                strokeWidth={2} 
+                dot={false} 
+                isAnimationActive={false} 
+                connectNulls={false}
+                name={vitalLabels[selectedVital]}
+              />
+            </>
           )}
         </LineChart>
       </ResponsiveContainer>
@@ -215,7 +374,10 @@ export default function PatientMonitor() {
       <div className="identity" style={{ marginTop: '10px' }}>
         <div>
           <h1 style={{ display: 'inline' }}>{patient.name}</h1>
-          <span className="meta">{patient.age}y &middot; {patient.condition} &middot; ID {patient.id} {patient.cerner_patient_id ? `· CERNER ${patient.cerner_patient_id}` : ''}</span>
+          <span className="meta" style={{ display: 'inline-flex', alignItems: 'center' }}>
+            <span>{patient.age}y &middot; {patient.condition} &middot; CERNER {patient.id}</span>
+            <CopyButton text={patient.id} />
+          </span>
         </div>
         <div className="id-actions">
           <button className="ghost-btn" onClick={() => setShowHistory(true)}>View History</button>
@@ -232,7 +394,7 @@ export default function PatientMonitor() {
               <div className="tag">HR</div><div className="label">Heart Rate</div><div className="num">{patient.heart_rate ?? '--'}</div><div className="unit">bpm</div><div className="ind" style={{background: 'var(--green)'}}></div>
             </div>
             <div className={`vcell ${selectedVital === 'spo2' ? 'sel' : ''}`} onClick={() => setSelectedVital('spo2')}>
-              <div className="tag">O2</div><div className="label">SpO&₂</div><div className="num">{patient.spo2 ?? '--'}</div><div className="unit">%</div><div className="ind" style={{background: 'var(--blue)'}}></div>
+              <div className="tag">O2</div><div className="label">SpO₂</div><div className="num">{patient.spo2 ?? '--'}</div><div className="unit">%</div><div className="ind" style={{background: 'var(--blue)'}}></div>
             </div>
             <div className={`vcell ${selectedVital === 'temperature' ? 'sel' : ''}`} onClick={() => setSelectedVital('temperature')}>
               <div className="tag">TMP</div><div className="label">Temperature</div><div className="num">{patient.temperature ?? '--'}</div><div className="unit">&deg;F</div><div className="ind" style={{background: 'var(--amber)'}}></div>
@@ -247,12 +409,19 @@ export default function PatientMonitor() {
           
           <div className={isGraphExpanded ? "scope-panel-fullscreen" : "scope-panel"}>
              <div className="scope-meta" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-               <span style={{ color: getLineColor(selectedVital) }}>{vitalLabels[selectedVital].toUpperCase()} CHART LOGGING LIVE DATA</span>
+               <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                 <span style={{ color: getLineColor(selectedVital) }}>{vitalLabels[selectedVital].toUpperCase()} CHART LOGGING LIVE DATA</span>
+                 <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: 'var(--ink-dim)', fontFamily: 'var(--font-mono)' }}>
+                   <span>Min: <strong style={{ color: 'var(--ink)' }}>{stats.min}</strong></span>
+                   <span>Avg: <strong style={{ color: 'var(--ink)' }}>{stats.avg}</strong></span>
+                   <span>Max: <strong style={{ color: 'var(--ink)' }}>{stats.max}</strong></span>
+                 </div>
+               </div>
                
                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
                  <div style={{ display: 'flex', gap: '4px', marginRight: '16px', alignItems: 'center' }}>
                    <span style={{ fontSize: '10px', color: 'var(--ink-dim)' }}>TIME:</span>
-                   {['15', '30', '45', '60'].map(t => (
+                   {['5', '15', '30', '60'].map(t => (
                      <button 
                        key={t}
                        className="ghost-btn" 

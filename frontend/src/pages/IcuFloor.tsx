@@ -5,6 +5,7 @@ import { useUiStore } from '../store/uiStore';
 import { useNavigate } from 'react-router-dom';
 import { isPatientActive } from '../types';
 import PatientModal from '../components/PatientModal';
+import CopyButton from '../components/CopyButton';
 
 export default function IcuFloor() {
   const { patients, alerts } = useWebSocket();
@@ -96,15 +97,16 @@ export default function IcuFloor() {
                   <div className="bed-num"><span className="pat-dot" style={{ background: statusColor, boxShadow: 'none' }}></span>{bedId}</div>
                   <div className="bed-tags">
                     {isLive ? <span className="bt live" style={{ background: statusColor }}>LIVE</span> : <span className="bt" style={{ border: '1px solid var(--line)' }}>OFFLINE</span>}
-                    {patient.cerner_patient_id && <span className="bt fhir">FHIR</span>}
+                    <span className="bt fhir">FHIR</span>
                     <span className="bed-x" onClick={(e) => handleUnassign(e, bedId)}>&times;</span>
                   </div>
                 </div>
                 <div className="bed-pname">{patient.name}</div>
-                <div className="bed-meta2">AGE {patient.age} &middot; {patient.condition} &middot; ID {patient.id}</div>
-                {patient.cerner_patient_id && (
-                  <div className="bed-cerner2">CERNER {patient.cerner_patient_id}</div>
-                )}
+                <div className="bed-meta2">AGE {patient.age} &middot; {patient.condition}</div>
+                <div className="bed-cerner2" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span>CERNER {patient.id}</span>
+                  <CopyButton text={patient.id} />
+                </div>
                 <div className="sig">
                   {[1,2,3,4,5].map(i => <span key={i} style={{ background: statusColor }}></span>)}
                 </div>

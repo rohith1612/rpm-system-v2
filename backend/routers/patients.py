@@ -19,10 +19,10 @@ class ThresholdUpdate(BaseModel):
     crit_high: Optional[float] = None
 
 class PatientCreateUpdate(BaseModel):
+    patient_id: str
     name: str
     age: int
     condition: str
-    cerner_patient_id: Optional[str] = None
 
 router = APIRouter(prefix="/api/patients", tags=["patients"])
 
@@ -259,7 +259,7 @@ async def create_new_patient(patient: PatientCreateUpdate):
     from fastapi import HTTPException
     
     try:
-        res = create_patient(patient.name, patient.age, patient.condition, patient.cerner_patient_id)
+        res = create_patient(patient.patient_id, patient.name, patient.age, patient.condition)
         await broadcast({"type": "snapshot", "data": get_latest_vitals_map()})
         return res
     except Exception as e:
@@ -343,7 +343,6 @@ def update_thresholds(patient_id: str, thresholds: List[ThresholdUpdate]):
 
 class CernerLogPayload(BaseModel):
     patient_id: str
-    cerner_patient_id: str
     status: str
     method: str
     http_status: int
@@ -356,7 +355,7 @@ class CernerLogPayload(BaseModel):
 def log_cerner_sync(payload: CernerLogPayload):
     """Log Cerner FHIR synchronization status and response details to the backend console."""
     print("\n" + "="*80)
-    print(f"[CERNER SYNC LOG] Patient ID: {payload.patient_id} (Cerner ID: {payload.cerner_patient_id})")
+    print(f"[CERNER SYNC LOG] Patient ID: {payload.patient_id}")
     print(f"Status: {payload.status.upper()} (HTTP {payload.http_status})")
     print(f"Method: {payload.method}")
     print(f"Vitals Sent: {payload.vitals_sent}")
@@ -404,10 +403,8 @@ async def sync_vitals_to_cerner(patient_id: str, payload: CernerSyncRequest):
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Patient not found.")
         
-    cerner_patient_id = patient.get("cerner_patient_id")
-    if not cerner_patient_id:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=400, detail="Patient is not linked to any Cerner ID.")
+    # Patient ID IS the Cerner ID now
+    cerner_patient_id = patient_id
 
     # 2. Enqueue the vitals into the background leaky bucket queue
     enqueue_vitals(patient_id, cerner_patient_id, payload.dict())

@@ -59,6 +59,8 @@ def enqueue_vitals(patient_id: str, cerner_patient_id: str, vitals: Dict[str, An
     for key, spec in mappings.items():
         val = vitals.get(key)
         if val is not None:
+            if key == "temperature":
+                val = round((val - 32) * 5 / 9, 1)
             _sync_queue.put({
                 "patient_id": patient_id,
                 "cerner_patient_id": cerner_patient_id,

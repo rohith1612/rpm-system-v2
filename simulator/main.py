@@ -26,7 +26,7 @@ def vital_status(key, value):
     thresholds = {
         "heart_rate":       (55, 45, 110, 130),
         "spo2":             (94, 90, 200, 200),
-        "temperature":      (0, 0, 37.5, 38.5),
+        "temperature":      (95.0, 93.0, 99.5, 101.3),
         "respiratory_rate": (10, 8, 22, 28),
         "systolic_bp":      (95, 80, 140, 170),
         "diastolic_bp":     (55, 45, 90, 100),

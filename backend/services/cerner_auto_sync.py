@@ -14,10 +14,10 @@ def sync_worker():
             patients = get_all_patients()
             
             for p in patients:
-                cerner_id = p.get("cerner_patient_id")
+                patient_id = p["id"]
                 
-                # If they have a Cerner mapping and they have some vitals recorded
-                if cerner_id and p.get("recorded_at"):
+                # patient_id IS the Cerner ID now; sync if they have recorded vitals
+                if p.get("recorded_at"):
                     vitals_payload = {
                         "heart_rate": p.get("heart_rate"),
                         "spo2": p.get("spo2"),
@@ -27,8 +27,8 @@ def sync_worker():
                         "diastolic_bp": p.get("diastolic_bp"),
                     }
                     
-                    # Enqueue the FHIR sync
-                    enqueue_vitals(p["id"], cerner_id, vitals_payload)
+                    # Enqueue the FHIR sync (patient_id == cerner_id)
+                    enqueue_vitals(patient_id, patient_id, vitals_payload)
                     
         except Exception as e:
             print(f"[RPM] Error in Cerner Auto-Sync worker: {e}")

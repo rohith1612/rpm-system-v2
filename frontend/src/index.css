@@ -1324,3 +1324,17 @@ html[data-theme="light"] .mode-knob {
 [data-theme="dark"] .cerner-brand-logo {
   filter: brightness(0) invert(1);
 }
+
+@keyframes copiedPulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}

@@ -2,7 +2,6 @@
 Business logic for storing and retrieving vital sign data with in-memory caching and batched database flushes.
 """
 
-import random
 import queue
 import threading
 import time
@@ -23,28 +22,20 @@ def _ensure_patient(conn, patient_id: str):
     pass
 
 
-def create_patient(name: str, age: int, condition: str, cerner_patient_id: str | None = None) -> dict:
-    """Create a new patient with a random PD_XXXXX ID."""
+def create_patient(patient_id: str, name: str, age: int, condition: str) -> dict:
+    """Create a new patient using the Cerner Patient ID as the primary key."""
     conn = get_connection()
     
-    if cerner_patient_id:
-        existing = conn.execute("SELECT id FROM patients WHERE cerner_patient_id = ?", (cerner_patient_id,)).fetchone()
-        if existing:
-            raise Exception("A patient with this Cerner ID has already been imported.")
-            
-    # Generate random 5-digit ID
-    patient_id = f"PD_{random.randint(10000, 99999):05d}"
-    
-    # Ensure uniqueness
-    while conn.execute("SELECT id FROM patients WHERE id = ?", (patient_id,)).fetchone():
-        patient_id = f"PD_{random.randint(10000, 99999):05d}"
+    existing = conn.execute("SELECT id FROM patients WHERE id = ?", (patient_id,)).fetchone()
+    if existing:
+        raise Exception(f"A patient with ID {patient_id} already exists.")
         
     conn.execute(
-        "INSERT INTO patients (id, name, age, condition, cerner_patient_id) VALUES (?, ?, ?, ?, ?)",
-        (patient_id, name, age, condition, cerner_patient_id),
+        "INSERT INTO patients (id, name, age, condition) VALUES (?, ?, ?, ?)",
+        (patient_id, name, age, condition),
     )
     conn.commit()
-    return {"id": patient_id, "name": name, "age": age, "condition": condition, "cerner_patient_id": cerner_patient_id}
+    return {"id": patient_id, "name": name, "age": age, "condition": condition}
 
 def update_patient(patient_id: str, name: str, age: int, condition: str) -> dict:
     """Update an existing patient's details."""
@@ -191,7 +182,7 @@ worker_thread.start()
 def get_all_patients() -> list[dict]:
     """Return all patients with their latest vital snapshot (merged with in-memory cache)."""
     conn = get_connection()
-    rows = conn.execute("""SELECT p.id, p.name, p.age, p.condition, p.registered_at, p.cerner_patient_id,
+    rows = conn.execute("""SELECT p.id, p.name, p.age, p.condition, p.registered_at,
                   v.heart_rate, v.spo2, v.temperature,
                   v.respiratory_rate, v.systolic_bp, v.diastolic_bp,
                   v.recorded_at
@@ -231,7 +222,7 @@ def get_patient(patient_id: str) -> dict | None:
     """Single patient with latest vitals (merged with in-memory cache)."""
     conn = get_connection()
     row = conn.execute(
-        """SELECT p.id, p.name, p.age, p.condition, p.registered_at, p.cerner_patient_id,
+        """SELECT p.id, p.name, p.age, p.condition, p.registered_at,
                   v.heart_rate, v.spo2, v.temperature,
                   v.respiratory_rate, v.systolic_bp, v.diastolic_bp,
                   v.recorded_at
@@ -350,7 +341,7 @@ def get_latest_vitals_map() -> dict:
             "name": p["name"],
             "age": p["age"],
             "condition": p["condition"],
-            "cerner_patient_id": p.get("cerner_patient_id"),
+
             "heart_rate": p["heart_rate"],
             "spo2": p["spo2"],
             "temperature": p["temperature"],

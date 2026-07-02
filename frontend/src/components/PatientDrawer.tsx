@@ -59,9 +59,7 @@ export default function PatientDrawer() {
               <div>
                 <div className="pat-name">{patient.name}</div>
                 <div className="pat-tags">{patient.age}y &nbsp;&middot;&nbsp; {patient.condition}</div>
-                {patient.cerner_patient_id && (
-                  <div className="pat-id">CERNER {patient.cerner_patient_id}</div>
-                )}
+                <div className="pat-id">CERNER {patient.id}</div>
               </div>
               <button 
                 className="delete-patient-btn"

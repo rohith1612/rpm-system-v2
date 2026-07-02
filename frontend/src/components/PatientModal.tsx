@@ -11,6 +11,7 @@ export default function PatientModal({ onClose, onSaved }: Props) {
   const [tab, setTab] = useState<'manual' | 'cerner'>('manual');
   
   // Manual State
+  const [cernerIdManual, setCernerIdManual] = useState("");
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   const [condition, setCondition] = useState("");
@@ -26,14 +27,14 @@ export default function PatientModal({ onClose, onSaved }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const handleManualSave = async () => {
-    if (!name.trim() || !age || !condition.trim()) {
-      setError("All fields are required.");
+    if (!cernerIdManual.trim() || !name.trim() || !age || !condition.trim()) {
+      setError("All fields are required (including Cerner Patient ID).");
       return;
     }
     setSaving(true);
     setError(null);
     try {
-      const newPatient = await createPatient({ name, age: parseInt(age, 10), condition });
+      const newPatient = await createPatient({ patient_id: cernerIdManual.trim(), name, age: parseInt(age, 10), condition });
       onSaved(newPatient.id);
     } catch (e: any) {
       setError(e.message || "Failed to save.");
@@ -66,10 +67,10 @@ export default function PatientModal({ onClose, onSaved }: Props) {
     setError(null);
     try {
       const newPatient = await createPatient({
+        patient_id: selectedCerner.id,
         name: selectedCerner.name,
         age: selectedCerner.age,
         condition: cernerCondition,
-        cerner_patient_id: selectedCerner.id
       });
       onSaved(newPatient.id);
     } catch (e: any) {
@@ -101,6 +102,10 @@ export default function PatientModal({ onClose, onSaved }: Props) {
 
           {tab === 'manual' && (
             <div>
+              <div className="form-group">
+                <label>Cerner Patient ID</label>
+                <input value={cernerIdManual} onChange={e => setCernerIdManual(e.target.value)} placeholder="e.g. 12724066" />
+              </div>
               <div className="form-group">
                 <label>Full Name</label>
                 <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. John Doe" />

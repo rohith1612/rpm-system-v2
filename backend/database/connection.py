@@ -98,6 +98,25 @@ def get_connection():
 def init_db():
     """Create normalized tables if they don't exist and clean old telemetry data."""
     conn = get_connection()
+
+    # One-time migration: drop old patients table if it has the legacy cerner_patient_id column
+    try:
+        cur = conn.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = 'patients' AND column_name = 'cerner_patient_id'"
+        )
+        if cur.fetchone():
+            print("[RPM] Migration: Detected legacy 'cerner_patient_id' column. Dropping all tables to recreate with new schema...")
+            conn.executescript("""
+                DROP TABLE IF EXISTS patient_beds CASCADE;
+                DROP TABLE IF EXISTS patient_thresholds CASCADE;
+                DROP TABLE IF EXISTS alerts CASCADE;
+                DROP TABLE IF EXISTS vitals CASCADE;
+                DROP TABLE IF EXISTS patients CASCADE;
+            """)
+            print("[RPM] Migration: Old tables dropped successfully.")
+    except Exception as e:
+        print(f"[RPM] Migration check skipped (table may not exist yet): {e}")
+
     conn.executescript(SCHEMA_SQL)
 
     # Clean old data: purge older than 7 days

@@ -7,7 +7,6 @@ export interface Patient {
   name: string;
   age: number | null;
   condition: string | null;
-  cerner_patient_id?: string | null;
   registered_at: string | null;
   heart_rate: number | null;
   spo2: number | null;

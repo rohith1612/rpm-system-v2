@@ -4,12 +4,12 @@ Normalized SQLite schema for remote patient monitoring.
 
 SCHEMA_SQL = """
 -- ── Patients ─────────────────────────────────────────
+-- id now stores the Cerner Patient ID directly (e.g. "12724066")
 CREATE TABLE IF NOT EXISTS patients (
     id              VARCHAR(50) PRIMARY KEY,
     name            VARCHAR(255) NOT NULL,
     age             INTEGER,
     condition       VARCHAR(255),
-    cerner_patient_id VARCHAR(100),
     registered_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

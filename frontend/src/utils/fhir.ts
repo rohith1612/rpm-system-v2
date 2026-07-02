@@ -395,7 +395,7 @@ export async function sendVitalsToCerner(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           patient_id: patientId,
-          cerner_patient_id: cernerPatientId,
+
           status: "success",
           method: "mock_transaction_bundle",
           http_status: 200,
@@ -703,7 +703,7 @@ export async function sendVitalsToCerner(
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             patient_id: patientId,
-            cerner_patient_id: cernerPatientId,
+  
             status: "success",
             method: "transaction_bundle",
             http_status: response.status,
@@ -751,7 +751,7 @@ export async function sendVitalsToCerner(
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               patient_id: patientId,
-              cerner_patient_id: cernerPatientId,
+    
               status: "failed",
               method: "individual_observations",
               http_status: response.status,
@@ -777,7 +777,7 @@ export async function sendVitalsToCerner(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           patient_id: patientId,
-          cerner_patient_id: cernerPatientId,
+
           status: "success",
           method: "individual_observations",
           http_status: 201,
@@ -797,7 +797,7 @@ export async function sendVitalsToCerner(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           patient_id: patientId,
-          cerner_patient_id: cernerPatientId,
+
           status: "failed",
           method: "individual_observations",
           http_status: 500,
