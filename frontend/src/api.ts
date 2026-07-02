@@ -2,14 +2,7 @@
  * REST API client for the Remote Patient Monitoring backend.
  */
 
-const getBackendHost = () => {
-  const envHost = (import.meta as any).env?.VITE_BACKEND_HOST;
-  if (envHost) return envHost;
-  const hostname = window.location.hostname;
-  return hostname === "localhost" || hostname === "127.0.0.1" ? "localhost" : hostname;
-};
-
-const API_BASE = `http://${getBackendHost()}:8000/api`;
+const API_BASE = "http://localhost:8000/api";
 
 export async function fetchPatients() {
   const res = await fetch(`${API_BASE}/patients`);
@@ -76,10 +69,7 @@ export async function createPatient(data: { name: string; age: number; condition
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Failed to create patient");
-  }
+  if (!res.ok) throw new Error("Failed to create patient");
   return res.json();
 }
 

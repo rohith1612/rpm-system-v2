@@ -364,3 +364,17 @@ html[data-theme="light"] .mode-knob{transform:translateX(20px); background:var(-
   display: inline-block;
   vertical-align: middle;
 }
+
+.cerner-brand-logo {
+  height: 18px;
+  width: auto;
+  margin-right: 10px;
+  vertical-align: middle;
+  display: inline-block;
+  flex-shrink: 0;
+  transition: filter 0.3s ease;
+}
+
+[data-theme="dark"] .cerner-brand-logo {
+  filter: brightness(0) invert(1);
+}

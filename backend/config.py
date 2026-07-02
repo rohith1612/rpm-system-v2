@@ -64,3 +64,6 @@ SYSTEM_SCOPES = os.environ.get("SYSTEM_SCOPES", "system/Patient.read system/Obse
 # Cerner Auto Sync Toggle
 ENABLE_CERNER_AUTO_SYNC = os.environ.get("ENABLE_CERNER_AUTO_SYNC", "true").lower() == "true"
 
+# App POV Mode (DEV or CUS) - reloaded dynamically
+APP_POV = os.environ.get("APP_POV", "DEV").upper()
+

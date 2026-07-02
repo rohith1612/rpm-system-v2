@@ -8,6 +8,7 @@ export interface FhirConfig {
   client_id: string;
   redirect_uri: string;
   smart_scopes: string;
+  app_pov?: "DEV" | "CUS";
 }
 
 export interface OAuthEndpoints {
@@ -15,14 +16,7 @@ export interface OAuthEndpoints {
   token_endpoint: string;
 }
 
-const getBackendHost = () => {
-  const envHost = (import.meta as any).env?.VITE_BACKEND_HOST;
-  if (envHost) return envHost;
-  const hostname = window.location.hostname;
-  return hostname === "localhost" || hostname === "127.0.0.1" ? "localhost" : hostname;
-};
-
-const API_BASE = `http://${getBackendHost()}:8000/api`;
+const API_BASE = "http://localhost:8000/api";
 
 /**
  * Fetch SMART on FHIR configuration from backend.

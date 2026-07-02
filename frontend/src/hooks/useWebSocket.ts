@@ -9,14 +9,7 @@ import { fetchPatients } from "../api";
 import { addLocalVitalPoint } from "../utils/localHistory";
 import { useAppStore } from "../store/vitalsStore";
 
-const getBackendHost = () => {
-  const envHost = (import.meta as any).env?.VITE_BACKEND_HOST;
-  if (envHost) return envHost;
-  const hostname = window.location.hostname;
-  return hostname === "localhost" || hostname === "127.0.0.1" ? "localhost" : hostname;
-};
-
-const WS_URL = `ws://${getBackendHost()}:8000/ws`;
+const WS_URL = "ws://localhost:8000/ws";
 const RECONNECT_DELAY = 3000;
 
 export function useWebSocket() {
