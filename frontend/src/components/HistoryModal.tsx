@@ -158,65 +158,67 @@ export default function HistoryModal({ patient, selectedVital: initialVital, onC
               <p>No telemetry data available for this hour.</p>
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e1e4e8" />
-                <XAxis
-                  dataKey="timestampMs"
-                  type="number"
-                  domain={[hourStart, hourEnd]}
-                  tickFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  stroke="#6a737d"
-                  tick={{ fill: "#586069", fontSize: 11 }}
-                />
-                <YAxis
-                  stroke="#6a737d"
-                  tick={{ fill: "#586069", fontSize: 11 }}
-                  domain={['auto', 'auto']}
-                />
-                <Tooltip
-                  labelFormatter={(unixTime) => new Date(unixTime as number).toLocaleTimeString()}
-                  contentStyle={{
-                    background: "#ffffff",
-                    border: "1px solid #e1e4e8",
-                    borderRadius: 6,
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
-                  }}
-                />
-                {activeVital === "blood_pressure" ? (
-                  <>
-                    <Line
-                      type="monotone"
-                      dataKey="systolic_bp"
-                      stroke={LINE_COLORS.systolic_bp || "#d73a49"}
-                      strokeWidth={2}
-                      dot={true}
-                      connectNulls={false}
-                      name="Systolic BP"
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="diastolic_bp"
-                      stroke={LINE_COLORS.diastolic_bp || "#0366d6"}
-                      strokeWidth={2}
-                      dot={true}
-                      connectNulls={false}
-                      name="Diastolic BP"
-                    />
-                  </>
-                ) : (
-                  <Line
-                    type="monotone"
-                    dataKey={activeVital}
-                    stroke={LINE_COLORS[activeVital] || "#0366d6"}
-                    strokeWidth={2}
-                    dot={true}
-                    connectNulls={false}
-                    name={`${config?.label || ""} (${config?.unit || ""})`}
+            <div style={{ width: '100%', height: '400px', minWidth: 0, minHeight: 0 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e1e4e8" />
+                  <XAxis
+                    dataKey="timestampMs"
+                    type="number"
+                    domain={[hourStart, hourEnd]}
+                    tickFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    stroke="#6a737d"
+                    tick={{ fill: "#586069", fontSize: 11 }}
                   />
-                )}
-              </LineChart>
-            </ResponsiveContainer>
+                  <YAxis
+                    stroke="#6a737d"
+                    tick={{ fill: "#586069", fontSize: 11 }}
+                    domain={['auto', 'auto']}
+                  />
+                  <Tooltip
+                    labelFormatter={(unixTime) => new Date(unixTime as number).toLocaleTimeString()}
+                    contentStyle={{
+                      background: "#ffffff",
+                      border: "1px solid #e1e4e8",
+                      borderRadius: 6,
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+                    }}
+                  />
+                  {activeVital === "blood_pressure" ? (
+                    <>
+                      <Line
+                        type="monotone"
+                        dataKey="systolic_bp"
+                        stroke={LINE_COLORS.systolic_bp || "#d73a49"}
+                        strokeWidth={2}
+                        dot={true}
+                        connectNulls={false}
+                        name="Systolic BP"
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="diastolic_bp"
+                        stroke={LINE_COLORS.diastolic_bp || "#0366d6"}
+                        strokeWidth={2}
+                        dot={true}
+                        connectNulls={false}
+                        name="Diastolic BP"
+                      />
+                    </>
+                  ) : (
+                    <Line
+                      type="monotone"
+                      dataKey={activeVital}
+                      stroke={LINE_COLORS[activeVital] || "#0366d6"}
+                      strokeWidth={2}
+                      dot={true}
+                      connectNulls={false}
+                      name={`${config?.label || ""} (${config?.unit || ""})`}
+                    />
+                  )}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           )}
         </div>
       </div>

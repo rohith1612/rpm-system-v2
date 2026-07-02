@@ -140,8 +140,10 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
   const { theme } = useUiStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
+  const themeRef = useRef(theme);
   // Track global time in milliseconds
   const offsetRef = useRef(0);
+  const respPhaseRef = useRef(0);
   const ecgRef = useRef(ecg);
   const patientRef = useRef(patient);
   const isDataStaleRef = useRef(isDataStale);
@@ -149,15 +151,17 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
 
   // Keep data fresh for the animation loop
   useEffect(() => {
+    themeRef.current = theme;
     ecgRef.current = ecg;
     patientRef.current = patient;
     isDataStaleRef.current = isDataStale;
-  }, [ecg, patient, isDataStale]);
+  }, [theme, ecg, patient, isDataStale]);
 
   // Clear ECG history buffer and reset cycle offset when switching patients, wave type, or lead configurations
   useEffect(() => {
     bufferRef.current = [];
     offsetRef.current = 0;
+    respPhaseRef.current = 0;
   }, [patient?.id, waveType, lead]);
 
   const draw = useCallback(() => {
@@ -183,15 +187,14 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
     const gridSmall = BASE_GRID_SMALL * scaleFactor;
     const gridLarge = BASE_GRID_LARGE * scaleFactor;
 
-
-    const isDark = theme === 'dark';
+    const isDark = themeRef.current === 'dark';
 
     // Background
-    ctx.fillStyle = isDark ? "#080808" : "#ffffff";
+    ctx.fillStyle = isDark ? "#081b14" : "#ffffff";
     ctx.fillRect(0, 0, W, H);
 
     // Draw grid
-    ctx.strokeStyle = isDark ? "rgba(0, 200, 83, 0.2)" : "rgba(255, 130, 140, 0.35)";
+    ctx.strokeStyle = isDark ? "rgba(0, 200, 83, 0.15)" : "rgba(255, 130, 140, 0.35)";
     ctx.lineWidth = 1;
     for (let x = 0; x < W; x += gridSmall) {
       ctx.beginPath();
@@ -244,13 +247,23 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
     const prMs = prSec * 1000;
 
     // Default settings for ECG — M4: distinct colors per waveform type
-    let strokeColor = waveType === "ecg" ? (isDark ? "#00ff41" : "#00c853")    // medical green (ECG)
-      : waveType === "pleth" ? (isDark ? "#00e5ff" : "#00b0ff")  // cyan (SpO₂ pleth)
-        : (isDark ? "#ffff00" : "#ffd600");                         // yellow (Resp)
+    let strokeColor = waveType === "ecg" ? (isDark ? "#5CFF8A" : "#00c853")    // medical green (ECG)
+      : waveType === "pleth" ? (isDark ? "#4DB8FF" : "#00b0ff")  // cyan (SpO₂ pleth)
+        : (isDark ? "#FFD84D" : "#ffd600");                         // yellow (Resp)
+
+    let shadowBlur = 0;
+    if (isDark) {
+      if (waveType === "ecg") shadowBlur = 8;
+      else if (waveType === "pleth") shadowBlur = 5;
+      else shadowBlur = 3;
+    }
 
     const stale = isDataStaleRef.current;
 
-    if (stale) strokeColor = "#94a3b8"; // Gray out when stale
+    if (stale) {
+      strokeColor = "#94a3b8"; // Gray out when stale
+      shadowBlur = 0;
+    }
 
     let cycleMs = rrMs;
     let labelText = stale ? `-- BPM | Lead ${lead}` : `${hr} BPM | Lead ${lead}`;
@@ -293,7 +306,8 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
       } else if (waveType === "pleth") {
         amp = plethAmplitude(beatMs, cycleMs);
       } else {
-        amp = respAmplitude(beatMs, cycleMs);
+        respPhaseRef.current += (16 / cycleMs) * Math.PI * 2;
+        amp = Math.sin(respPhaseRef.current) * 0.4;
       }
       // Push new amplitude into circular buffer
       const buf = bufferRef.current;
@@ -305,6 +319,12 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
       // Render waveform from buffer
       ctx.beginPath();
       ctx.strokeStyle = strokeColor;
+      if (shadowBlur > 0) {
+        ctx.shadowBlur = shadowBlur;
+        ctx.shadowColor = strokeColor;
+      } else {
+        ctx.shadowBlur = 0;
+      }
       ctx.lineWidth = 2.5;
       ctx.lineJoin = "round";
       ctx.lineCap = "round";
@@ -345,13 +365,13 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
     ctx.roundRect(5, 5, pillW, pillH, 6);
     ctx.fill();
 
-    ctx.fillStyle = isDark ? "#e2e8f0" : "#0f172a";
+    ctx.fillStyle = isDark ? "#ffffff" : "#0f172a";
     ctx.fillText(labelText, 12, 5 + fontSize * 1.3);
-    ctx.fillStyle = isDark ? "#94a3b8" : "#64748b";
+    ctx.fillStyle = isDark ? "#5CFF8A" : "#64748b";
     ctx.fillText(e?.rhythm ?? "---", 12, 5 + fontSize * 2.7);
 
     // BPM display on the right side
-    ctx.fillStyle = isDark ? "#e2e8f0" : "#0f172a";
+    ctx.fillStyle = isDark ? "#ffffff" : "#0f172a";
     ctx.textAlign = "right";
     ctx.textBaseline = "top";
     ctx.font = `bold ${fontSize}px var(--font-mono, 'Consolas', monospace)`;
@@ -363,13 +383,13 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
     // Calibration Specs at Bottom Right
     const calibFont = Math.max(9, Math.round(11 * scaleFactor));
     ctx.font = `bold ${calibFont}px var(--font-mono, 'Consolas', monospace)`;
-    ctx.fillStyle = isDark ? "rgba(148, 163, 184, 0.8)" : "rgba(100, 116, 139, 0.8)";
+    ctx.fillStyle = isDark ? "rgba(0, 200, 83, 0.8)" : "rgba(100, 116, 139, 0.8)";
     const calibText = "25 mm/s  10 mm/mV";
     ctx.fillText(calibText, W - ctx.measureText(calibText).width - 10, H - 10);
 
     if (waveType === "ecg") {
       // Y-Axis Voltage Markers (only valid for ECG)
-      ctx.fillStyle = isDark ? "rgba(226, 232, 240, 0.6)" : "rgba(15, 23, 42, 0.5)";
+      ctx.fillStyle = isDark ? "rgba(0, 200, 83, 0.8)" : "rgba(15, 23, 42, 0.5)";
       const labelY = lead === "aVR" ? H * 0.35 : H * 0.65; // Align to baseline
       ctx.fillText("+1.0 mV", W - 55, labelY - ampScale + calibFont / 2);
       ctx.fillText("0.0 mV", W - 50, labelY + calibFont / 2);

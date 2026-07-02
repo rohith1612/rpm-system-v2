@@ -84,6 +84,13 @@ export default function IcuFloor() {
             const isLive = isPatientActive(patient);
             const isCritical = alerts.some(a => a.patient_id === patientId && a.severity === 'critical');
 
+            const getVitalAlertSeverity = (vitalKey: string): string | null => {
+              const alert = alerts.find(a => a.patient_id === patientId &&
+                (a.vital_type === vitalKey || (vitalKey === 'blood_pressure' && a.vital_type.endsWith('bp')))
+              );
+              return alert ? alert.severity : null;
+            };
+
             let statusColor = 'var(--green)';
             if (!isLive) {
               statusColor = 'var(--ink)';
@@ -108,14 +115,18 @@ export default function IcuFloor() {
                   <CopyButton text={patient.id} />
                 </div>
                 <div className="sig">
-                  {[1,2,3,4,5].map(i => <span key={i} style={{ background: statusColor }}></span>)}
+                  {['heart_rate', 'spo2', 'temperature', 'respiratory_rate', 'blood_pressure'].map(vitalKey => {
+                    const sev = getVitalAlertSeverity(vitalKey);
+                    const color = !isLive ? 'var(--ink)' : sev === 'critical' ? 'var(--red)' : sev === 'warning' ? 'var(--amber)' : 'var(--green)';
+                    return <span key={vitalKey} className={sev ? `glow-${sev}` : ''} style={{ background: color }}></span>;
+                  })}
                 </div>
                 <div className="bed-vrow">
-                  <div className="bv2"><div className="l">HR</div><div className="v">{patient.heart_rate ?? '--'}</div><div className="u">bpm</div></div>
-                  <div className="bv2"><div className="l">O2</div><div className="v">{patient.spo2 ?? '--'}</div><div className="u">%</div></div>
-                  <div className="bv2"><div className="l">TMP</div><div className="v">{patient.temperature ?? '--'}</div><div className="u">&deg;F</div></div>
-                  <div className="bv2"><div className="l">RR</div><div className="v">{patient.respiratory_rate ?? '--'}</div><div className="u">br/min</div></div>
-                  <div className="bv2"><div className="l">BP</div><div className="v" style={{ fontSize: '11px' }}>{patient.systolic_bp ?? '--'}/{patient.diastolic_bp ?? '--'}</div><div className="u">mmHg</div></div>
+                  <div className={`bv2 ${getVitalAlertSeverity('heart_rate') ? 'glow-' + getVitalAlertSeverity('heart_rate') : ''}`}><div className="l">HR</div><div className="v">{patient.heart_rate ?? '--'}</div><div className="u">bpm</div></div>
+                  <div className={`bv2 ${getVitalAlertSeverity('spo2') ? 'glow-' + getVitalAlertSeverity('spo2') : ''}`}><div className="l">O2</div><div className="v">{patient.spo2 ?? '--'}</div><div className="u">%</div></div>
+                  <div className={`bv2 ${getVitalAlertSeverity('temperature') ? 'glow-' + getVitalAlertSeverity('temperature') : ''}`}><div className="l">TMP</div><div className="v">{patient.temperature ?? '--'}</div><div className="u">&deg;F</div></div>
+                  <div className={`bv2 ${getVitalAlertSeverity('respiratory_rate') ? 'glow-' + getVitalAlertSeverity('respiratory_rate') : ''}`}><div className="l">RR</div><div className="v">{patient.respiratory_rate ?? '--'}</div><div className="u">br/min</div></div>
+                  <div className={`bv2 ${getVitalAlertSeverity('blood_pressure') ? 'glow-' + getVitalAlertSeverity('blood_pressure') : ''}`}><div className="l">BP</div><div className="v" style={{ fontSize: '15px' }}>{patient.systolic_bp ?? '--'}/{patient.diastolic_bp ?? '--'}</div><div className="u">mmHg</div></div>
                 </div>
                 <div className="bed-sys2">
                   <span>SYS_STAT: {isLive ? 'ONLINE' : 'STALE'}</span>
@@ -146,8 +157,8 @@ export default function IcuFloor() {
       </div>
 
       {showPatientModal && (
-        <PatientModal 
-          onClose={() => setShowPatientModal(false)} 
+        <PatientModal
+          onClose={() => setShowPatientModal(false)}
           onSaved={(patientId) => {
             setArmedPatient(patientId);
             setShowPatientModal(false);

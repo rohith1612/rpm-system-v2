@@ -412,7 +412,7 @@ body {
   gap: 6px;
   padding: 3px 9px;
   border: 1px solid var(--green);
-  color: var(--green);
+  color: #ffffff;
   font-weight: 700;
   letter-spacing: .06em;
   font-size: 10.5px;
@@ -436,12 +436,12 @@ body {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: .08em;
-  color: var(--ink-faint);
+  color: #ffffff;
   transition: color .15s;
 }
 
 .mode-label.on {
-  color: var(--green);
+  color: #ffffff;
 }
 
 .mode-track {
@@ -615,17 +615,24 @@ html[data-theme="light"] .mode-knob {
 
 .vcell .tag {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: .1em;
   color: var(--ink-faint);
   font-weight: 700;
 }
 
 .vcell .label {
-  font-size: 11px;
-  color: var(--ink-dim);
+  font-size: 15px;
   margin-top: 2px;
   font-weight: 600;
+}
+
+[data-theme="light"] .vcell .label {
+  color: #000;
+}
+
+[data-theme="dark"] .vcell .label {
+  color: #fff;
 }
 
 .vcell .num {
@@ -833,7 +840,7 @@ html[data-theme="light"] .mode-knob {
   background: var(--scope-bg);
   position: relative;
   flex: 1;
-  min-height: 220px;
+  min-height: 80px;
 }
 
 .trace-label {
@@ -868,7 +875,7 @@ html[data-theme="light"] .mode-knob {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
-  height: 190px;
+  height: 100px;
 }
 
 /* ===== AI Insights — terminal style ===== */
@@ -1025,7 +1032,7 @@ html[data-theme="light"] .mode-knob {
 
 .solid-btn.accent {
   background: var(--green);
-  color: #06120c;
+  color: var(--bg);
 }
 
 .bed-floor {
@@ -1147,14 +1154,14 @@ html[data-theme="light"] .mode-knob {
 .bed-meta2 {
   font-family: var(--font-mono);
   font-size: 10.5px;
-  color: var(--ink-dim);
+  color: var(--ink);
   margin-top: 4px;
 }
 
 .bed-cerner2 {
   font-family: var(--font-mono);
   font-size: 10px;
-  color: var(--ink-faint);
+  color: var(--ink);
   margin-top: 3px;
 }
 
@@ -1186,14 +1193,21 @@ html[data-theme="light"] .mode-knob {
 
 .bv2 .l {
   font-family: var(--font-mono);
-  font-size: 8.5px;
-  color: var(--ink-faint);
+  font-size: 12.5px;
   font-weight: 700;
+}
+
+[data-theme="light"] .bv2 .l {
+  color: #000;
+}
+
+[data-theme="dark"] .bv2 .l {
+  color: #fff;
 }
 
 .bv2 .v {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   margin-top: 2px;
 }
@@ -1299,7 +1313,7 @@ html[data-theme="light"] .mode-knob {
 
 .token-expiry-badge {
   background: var(--line);
-  color: var(--ink-dim);
+  color: #ffffff;
   font-size: 9.5px;
   padding: 1px 5px;
   border-radius: 2px;
@@ -1330,11 +1344,44 @@ html[data-theme="light"] .mode-knob {
     transform: scale(0.6);
     opacity: 0;
   }
+
   50% {
     transform: scale(1.2);
   }
+
   100% {
     transform: scale(1);
     opacity: 1;
   }
+}
+
+/* Glow for vital alerts */
+.vcell.glow-warning .num,
+.bv2.glow-warning .v {
+  color: var(--amber) !important;
+  text-shadow: 0 0 12px rgba(245, 158, 11, 0.8);
+}
+
+.vcell.glow-critical .num,
+.bv2.glow-critical .v {
+  color: var(--red) !important;
+  text-shadow: 0 0 12px rgba(239, 68, 68, 0.8);
+}
+
+.vcell.glow-warning .ind {
+  background: var(--amber) !important;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.8), 0 0 20px rgba(245, 158, 11, 0.8);
+}
+
+.vcell.glow-critical .ind {
+  background: var(--red) !important;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.8), 0 0 20px rgba(239, 68, 68, 0.8);
+}
+
+.sig span.glow-warning {
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.8), 0 0 12px rgba(245, 158, 11, 0.8);
+}
+
+.sig span.glow-critical {
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.8), 0 0 12px rgba(239, 68, 68, 0.8);
 }
