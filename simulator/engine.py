@@ -55,7 +55,7 @@ class PhysiologyEngine:
     BASE_RR = 14
     BASE_SYS = 120
     BASE_DIA = 80
-    BASE_TEMP = 36.8
+    BASE_TEMP = 98.2
 
     @classmethod
     def compute_vitals(cls, state: dict) -> dict:
@@ -73,7 +73,7 @@ class PhysiologyEngine:
                 "respiratory_rate": {"mean": 0, "std": 0},
                 "systolic_bp": {"mean": 0, "std": 0},
                 "diastolic_bp": {"mean": 0, "std": 0},
-                "temperature": {"mean": 35.0, "std": 0},
+                "temperature": {"mean": 95.0, "std": 0},
             }
 
         # Heart Rate: Increases with stress, pain. Compensates for low oxygenation or low CO.
@@ -100,7 +100,7 @@ class PhysiologyEngine:
             "respiratory_rate": {"mean": rr, "std": 1 + (stress * 2)},
             "systolic_bp": {"mean": sys_bp, "std": 5 + (stress * 5)},
             "diastolic_bp": {"mean": dia_bp, "std": 3 + (stress * 3)},
-            "temperature": {"mean": temp, "std": 0.1 + (stress * 0.2)},
+            "temperature": {"mean": temp, "std": 0.2 + (stress * 0.4)},
         }
 
 class VitalGenerator:

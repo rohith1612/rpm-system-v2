@@ -6,6 +6,7 @@
  */
 import { useRef, useEffect, useCallback } from "react";
 import type { EcgPayload, Patient } from "../types";
+import { useUiStore } from "../store/uiStore";
 import "./EcgWaveform.css";
 
 interface Props {
@@ -136,6 +137,7 @@ function respAmplitude(tMs: number, respMs: number): number {
 }
 
 export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II", isDataStale = false }: Props) {
+  const { theme } = useUiStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
   // Track global time in milliseconds
@@ -182,12 +184,14 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
     const gridLarge = BASE_GRID_LARGE * scaleFactor;
 
 
-    // Background (ECG Paper White)
-    ctx.fillStyle = "#ffffff";
+    const isDark = theme === 'dark';
+
+    // Background
+    ctx.fillStyle = isDark ? "#080808" : "#ffffff";
     ctx.fillRect(0, 0, W, H);
 
-    // Draw grid (Medical Pink)
-    ctx.strokeStyle = "rgba(255, 130, 140, 0.35)";
+    // Draw grid
+    ctx.strokeStyle = isDark ? "rgba(0, 200, 83, 0.2)" : "rgba(255, 130, 140, 0.35)";
     ctx.lineWidth = 1;
     for (let x = 0; x < W; x += gridSmall) {
       ctx.beginPath();
@@ -208,7 +212,7 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
       ctx.stroke();
     }
     // Major grid lines
-    ctx.strokeStyle = "rgba(255, 90, 100, 0.6)";
+    ctx.strokeStyle = isDark ? "rgba(0, 200, 83, 0.4)" : "rgba(255, 90, 100, 0.6)";
     ctx.lineWidth = 1.5;
     for (let x = 0; x < W; x += gridLarge) {
       ctx.beginPath();
@@ -240,9 +244,9 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
     const prMs = prSec * 1000;
 
     // Default settings for ECG — M4: distinct colors per waveform type
-    let strokeColor = waveType === "ecg" ? "#00c853"    // medical green (ECG)
-      : waveType === "pleth" ? "#00b0ff"  // cyan (SpO₂ pleth)
-        : "#ffd600";                         // yellow (Resp)
+    let strokeColor = waveType === "ecg" ? (isDark ? "#00ff41" : "#00c853")    // medical green (ECG)
+      : waveType === "pleth" ? (isDark ? "#00e5ff" : "#00b0ff")  // cyan (SpO₂ pleth)
+        : (isDark ? "#ffff00" : "#ffd600");                         // yellow (Resp)
 
     const stale = isDataStaleRef.current;
 
@@ -334,20 +338,20 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
     ctx.font = `bold ${fontSize}px var(--font-mono, 'Consolas', monospace)`;
 
     // Draw a white pill background for text readability over the grid
-    ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+    ctx.fillStyle = isDark ? "rgba(10, 15, 20, 0.85)" : "rgba(255, 255, 255, 0.85)";
     ctx.beginPath();
     const pillW = fontSize * 15; // increased width for longer text
     const pillH = fontSize * 3.4;
     ctx.roundRect(5, 5, pillW, pillH, 6);
     ctx.fill();
 
-    ctx.fillStyle = "#0f172a";
+    ctx.fillStyle = isDark ? "#e2e8f0" : "#0f172a";
     ctx.fillText(labelText, 12, 5 + fontSize * 1.3);
-    ctx.fillStyle = "#64748b";
+    ctx.fillStyle = isDark ? "#94a3b8" : "#64748b";
     ctx.fillText(e?.rhythm ?? "---", 12, 5 + fontSize * 2.7);
 
     // BPM display on the right side
-    ctx.fillStyle = "#0f172a";
+    ctx.fillStyle = isDark ? "#e2e8f0" : "#0f172a";
     ctx.textAlign = "right";
     ctx.textBaseline = "top";
     ctx.font = `bold ${fontSize}px var(--font-mono, 'Consolas', monospace)`;
@@ -359,13 +363,13 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
     // Calibration Specs at Bottom Right
     const calibFont = Math.max(9, Math.round(11 * scaleFactor));
     ctx.font = `bold ${calibFont}px var(--font-mono, 'Consolas', monospace)`;
-    ctx.fillStyle = "rgba(100, 116, 139, 0.8)";
+    ctx.fillStyle = isDark ? "rgba(148, 163, 184, 0.8)" : "rgba(100, 116, 139, 0.8)";
     const calibText = "25 mm/s  10 mm/mV";
     ctx.fillText(calibText, W - ctx.measureText(calibText).width - 10, H - 10);
 
     if (waveType === "ecg") {
       // Y-Axis Voltage Markers (only valid for ECG)
-      ctx.fillStyle = "rgba(15, 23, 42, 0.5)";
+      ctx.fillStyle = isDark ? "rgba(226, 232, 240, 0.6)" : "rgba(15, 23, 42, 0.5)";
       const labelY = lead === "aVR" ? H * 0.35 : H * 0.65; // Align to baseline
       ctx.fillText("+1.0 mV", W - 55, labelY - ampScale + calibFont / 2);
       ctx.fillText("0.0 mV", W - 50, labelY + calibFont / 2);

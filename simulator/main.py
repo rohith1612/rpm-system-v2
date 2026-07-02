@@ -40,7 +40,7 @@ def vital_status(key, value):
 VITAL_LABELS = {
     "heart_rate":       ("Heart Rate", "bpm"),
     "spo2":             ("SpO₂",       "%"),
-    "temperature":      ("Temp",       "°C"),
+    "temperature":      ("Temp",       "°F"),
     "respiratory_rate": ("Resp Rate",  "br/m"),
     "systolic_bp":      ("Systolic",   "mmHg"),
     "diastolic_bp":     ("Diastolic",  "mmHg"),

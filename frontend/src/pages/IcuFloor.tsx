@@ -111,7 +111,7 @@ export default function IcuFloor() {
                 <div className="bed-vrow">
                   <div className="bv2"><div className="l">HR</div><div className="v">{patient.heart_rate ?? '--'}</div><div className="u">bpm</div></div>
                   <div className="bv2"><div className="l">O2</div><div className="v">{patient.spo2 ?? '--'}</div><div className="u">%</div></div>
-                  <div className="bv2"><div className="l">TMP</div><div className="v">{patient.temperature ?? '--'}</div><div className="u">&deg;C</div></div>
+                  <div className="bv2"><div className="l">TMP</div><div className="v">{patient.temperature ?? '--'}</div><div className="u">&deg;F</div></div>
                   <div className="bv2"><div className="l">RR</div><div className="v">{patient.respiratory_rate ?? '--'}</div><div className="u">br/min</div></div>
                   <div className="bv2"><div className="l">BP</div><div className="v" style={{ fontSize: '11px' }}>{patient.systolic_bp ?? '--'}/{patient.diastolic_bp ?? '--'}</div><div className="u">mmHg</div></div>
                 </div>

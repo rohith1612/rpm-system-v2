@@ -124,7 +124,7 @@ export const DIA_BP_CONFIG = { key: "diastolic_bp" as any, label: "Diastolic BP"
 export const VITAL_CONFIGS: VitalConfig[] = [
   { key: "heart_rate", label: "Heart Rate", unit: "bpm", icon: "HR", warnLow: 55, critLow: 45, warnHigh: 110, critHigh: 130 },
   { key: "spo2", label: "SpO₂", unit: "%", icon: "O2", warnLow: 94, critLow: 90, warnHigh: null, critHigh: null },
-  { key: "temperature", label: "Temperature", unit: "°C", icon: "TMP", warnLow: null, critLow: null, warnHigh: 37.5, critHigh: 38.5 },
+  { key: "temperature", label: "Temperature", unit: "°F", icon: "TMP", warnLow: null, critLow: null, warnHigh: 99.5, critHigh: 101.3 },
   { key: "respiratory_rate", label: "Resp. Rate", unit: "br/min", icon: "RR", warnLow: 10, critLow: 8, warnHigh: 22, critHigh: 28 },
   { key: "blood_pressure", label: "Blood Pressure", unit: "mmHg", icon: "BP", warnLow: null, critLow: null, warnHigh: null, critHigh: null },
 ];

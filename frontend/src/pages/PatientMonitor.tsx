@@ -27,6 +27,8 @@ export default function PatientMonitor() {
   const [yScaleMode, setYScaleMode] = useState<'auto'|'fixed'>('auto');
   const [yMin, setYMin] = useState<number | ''>('');
   const [yMax, setYMax] = useState<number | ''>('');
+  const [timeFilter, setTimeFilter] = useState<'15'|'30'|'45'|'60'|'manual'>('60');
+  const [manualMinutes, setManualMinutes] = useState<number | ''>('');
   
   const patient = id ? patients[id] : null;
   const vitalsHistoryRaw = useAppStore(state => state.vitalsHistory[id || '']);
@@ -92,8 +94,19 @@ export default function PatientMonitor() {
     }
   }
 
-  // We limit to the last 200 points for performance
-  const chartData = allData.slice(-200);
+  // Filter based on selected time limit
+  const latestTimestamp = allData.length > 0 ? Math.max(...allData.map(d => d.timestampMs)) : Date.now();
+  let filterMinutes = 60;
+  if (timeFilter === 'manual') {
+    filterMinutes = typeof manualMinutes === 'number' && manualMinutes > 0 ? manualMinutes : 60;
+  } else {
+    filterMinutes = parseInt(timeFilter, 10);
+  }
+  const filterMs = filterMinutes * 60 * 1000;
+  
+  // We limit to the last 500 points for performance, but only those within filterMs
+  const filteredData = allData.filter(d => d.timestampMs >= latestTimestamp - filterMs);
+  const chartData = filteredData.slice(-500);
 
   const getLineColor = (key: string) => {
     switch(key) {
@@ -222,7 +235,7 @@ export default function PatientMonitor() {
               <div className="tag">O2</div><div className="label">SpO&₂</div><div className="num">{patient.spo2 ?? '--'}</div><div className="unit">%</div><div className="ind" style={{background: 'var(--blue)'}}></div>
             </div>
             <div className={`vcell ${selectedVital === 'temperature' ? 'sel' : ''}`} onClick={() => setSelectedVital('temperature')}>
-              <div className="tag">TMP</div><div className="label">Temperature</div><div className="num">{patient.temperature ?? '--'}</div><div className="unit">&deg;C</div><div className="ind" style={{background: 'var(--amber)'}}></div>
+              <div className="tag">TMP</div><div className="label">Temperature</div><div className="num">{patient.temperature ?? '--'}</div><div className="unit">&deg;F</div><div className="ind" style={{background: 'var(--amber)'}}></div>
             </div>
             <div className={`vcell ${selectedVital === 'respiratory_rate' ? 'sel' : ''}`} onClick={() => setSelectedVital('respiratory_rate')}>
               <div className="tag">RR</div><div className="label">Resp. Rate</div><div className="num">{patient.respiratory_rate ?? '--'}</div><div className="unit">br/min</div><div className="ind" style={{background: 'var(--purple, #a855f7)'}}></div>
@@ -237,6 +250,36 @@ export default function PatientMonitor() {
                <span style={{ color: getLineColor(selectedVital) }}>{vitalLabels[selectedVital].toUpperCase()} CHART LOGGING LIVE DATA</span>
                
                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+                 <div style={{ display: 'flex', gap: '4px', marginRight: '16px', alignItems: 'center' }}>
+                   <span style={{ fontSize: '10px', color: 'var(--ink-dim)' }}>TIME:</span>
+                   {['15', '30', '45', '60'].map(t => (
+                     <button 
+                       key={t}
+                       className="ghost-btn" 
+                       style={{ padding: '2px 6px', fontSize: '10px', background: timeFilter === t ? 'var(--line)' : 'transparent' }}
+                       onClick={() => setTimeFilter(t as any)}
+                     >
+                       {t}m
+                     </button>
+                   ))}
+                   <button 
+                     className="ghost-btn" 
+                     style={{ padding: '2px 6px', fontSize: '10px', background: timeFilter === 'manual' ? 'var(--line)' : 'transparent' }}
+                     onClick={() => setTimeFilter('manual')}
+                   >
+                     Custom
+                   </button>
+                   {timeFilter === 'manual' && (
+                     <input 
+                       type="number" 
+                       placeholder="Min" 
+                       value={manualMinutes} 
+                       onChange={(e) => setManualMinutes(e.target.value === '' ? '' : Number(e.target.value))}
+                       style={{ width: '40px', background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--line)', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', marginLeft: '4px' }}
+                     />
+                   )}
+                 </div>
+                 
                  <select 
                    value={yScaleMode} 
                    onChange={(e) => setYScaleMode(e.target.value as 'auto'|'fixed')}
