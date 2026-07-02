@@ -6,23 +6,33 @@ export default function Launch() {
   const [logs, setLogs] = useState<string[]>([]);
   const [status, setStatus] = useState<"initializing" | "discovering" | "ready" | "error">("initializing");
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
+  const [appPov, setAppPov] = useState<"DEV" | "CUS" | null>(null);
+  
   const started = useRef(false);
+  const appPovRef = useRef<"DEV" | "CUS" | null>(null);
 
   const addLog = (msg: string) => {
     setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
   };
 
-  const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, appPovRef.current === "CUS" ? 150 : ms));
 
   useEffect(() => {
     if (started.current) return;
     started.current = true;
 
-    document.title = "SMART on FHIR Handshake...";
+    document.title = "Cerner-RPM-app | Handshake...";
 
     async function runLaunch() {
       try {
         addLog("SYSTEM: Booting SMART on FHIR authorization client...");
+        
+        // Fetch config immediately to check POV mode
+        const config = await fetchFhirConfig();
+        const currentPov = config.app_pov || "DEV";
+        setAppPov(currentPov);
+        appPovRef.current = currentPov;
+        
         await delay(800);
 
         addLog("PARAMS: Extracting EHR query parameters from URL...");
@@ -54,9 +64,6 @@ export default function Launch() {
         await delay(800);
 
         addLog("CONFIG: Loading client application registration from RPM backend...");
-        const config = await fetchFhirConfig();
-        await delay(800);
-
         if (!config.client_id) {
           throw new Error("Client registration check failed: Client ID is missing in backend .env");
         }
@@ -120,6 +127,7 @@ export default function Launch() {
         window.location.href = authUrl.toString();
       } catch (err: any) {
         console.error(err);
+        setAppPov(appPovRef.current || "DEV");
         setStatus("error");
         setErrorDetail(err.message || "Unknown error during SMART Launch sequence.");
         addLog(`FATAL ERROR: ${err.message || "SMART Launch failed."}`);
@@ -129,58 +137,91 @@ export default function Launch() {
     runLaunch();
   }, []);
 
+  if (appPov === null) {
+    return <div className="launch-screen"></div>;
+  }
+
   return (
     <div className="launch-screen">
-      <div className="launch-container">
-        <div className="launch-header">
-          <div className="header-status">
-            <span className="pulse-dot"></span>
-            <span className="title">SMART ON FHIR HANDSHAKE IN PROGRESS</span>
-          </div>
-          <div className="header-meta">
-            {status === "initializing" && "STATUS: INITIALIZING CLIENT"}
-            {status === "discovering" && "STATUS: DISCOVERING ENDPOINTS"}
-            {status === "ready" && "STATUS: ESTABLISHING REDIRECT"}
-            {status === "error" && "STATUS: HANDSHAKE FAIL"}
-          </div>
-        </div>
-
-        <div className="terminal-window">
-          <div className="terminal-header">
-            <div className="terminal-buttons">
-              <span className="btn close"></span>
-              <span className="btn minimize"></span>
-              <span className="btn maximize"></span>
+      {appPov === "CUS" ? (
+        status !== "error" ? (
+          <div className="minimal-launch-container">
+            <div className="spinner-container">
+              <div className="minimal-spinner"></div>
+              <div className="spinner-glow"></div>
             </div>
-            <div className="terminal-title">smart_handshake_client.sh</div>
+            <div className="minimal-status-text">
+              {status === "initializing" && "Connecting to Cerner EHR Sandbox..."}
+              {status === "discovering" && "Authenticating secure session..."}
+              {status === "ready" && "Redirecting to EHR dashboard..."}
+            </div>
           </div>
-          <div className="terminal-body">
-            {logs.map((log, index) => (
-              <div key={index} className="log-line">
-                {log}
-              </div>
-            ))}
-            {status === "error" && errorDetail && (
-              <div className="log-line error-line">
-                [EXCEPTION] {errorDetail}
-              </div>
-            )}
-            {status !== "error" && status !== "ready" && (
-              <div className="log-line cursor-line">
-                Awaiting next step<span className="cursor"></span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {status === "error" && (
-          <div className="error-actions">
+        ) : (
+          <div className="minimal-error-container">
+            <svg viewBox="0 0 24 24" className="error-icon" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <h2>Launch Failed</h2>
+            <p>{errorDetail}</p>
             <button className="solid-btn dark" onClick={() => window.location.href = "/"}>
               Return to ICU Floor
             </button>
           </div>
-        )}
-      </div>
+        )
+      ) : (
+        <div className="launch-container">
+          <div className="launch-header">
+            <div className="header-status">
+              <span className="pulse-dot"></span>
+              <span className="title">SMART ON FHIR HANDSHAKE IN PROGRESS</span>
+            </div>
+            <div className="header-meta">
+              {status === "initializing" && "STATUS: INITIALIZING CLIENT"}
+              {status === "discovering" && "STATUS: DISCOVERING ENDPOINTS"}
+              {status === "ready" && "STATUS: ESTABLISHING REDIRECT"}
+              {status === "error" && "STATUS: HANDSHAKE FAIL"}
+            </div>
+          </div>
+
+          <div className="terminal-window">
+            <div className="terminal-header">
+              <div className="terminal-buttons">
+                <span className="btn close"></span>
+                <span className="btn minimize"></span>
+                <span className="btn maximize"></span>
+              </div>
+              <div className="terminal-title">smart_handshake_client.sh</div>
+            </div>
+            <div className="terminal-body">
+              {logs.map((log, index) => (
+                <div key={index} className="log-line">
+                  {log}
+                </div>
+              ))}
+              {status === "error" && errorDetail && (
+                <div className="log-line error-line">
+                  [EXCEPTION] {errorDetail}
+                </div>
+              )}
+              {status !== "error" && status !== "ready" && (
+                <div className="log-line cursor-line">
+                  Awaiting next step<span className="cursor"></span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {status === "error" && (
+            <div className="error-actions">
+              <button className="solid-btn dark" onClick={() => window.location.href = "/"}>
+                Return to ICU Floor
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

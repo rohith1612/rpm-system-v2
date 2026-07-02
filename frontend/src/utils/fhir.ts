@@ -8,6 +8,7 @@ export interface FhirConfig {
   client_id: string;
   redirect_uri: string;
   smart_scopes: string;
+  app_pov?: "DEV" | "CUS";
 }
 
 export interface OAuthEndpoints {

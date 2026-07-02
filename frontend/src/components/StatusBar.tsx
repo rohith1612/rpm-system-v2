@@ -47,6 +47,7 @@ export default function StatusBar() {
   return (
     <div className="statusbar">
       <div className="statusbar-left">
+        <img className="cerner-brand-logo" src="/favicon.svg" alt="Oracle Cerner Logo" />
         <span className="brand-word">RPM MONITOR</span>
         {connected ? (
           <span className="sb-item conn-ok">

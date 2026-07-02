@@ -11,7 +11,7 @@ MQTT_PORT = 1883
 # Unique session prefix to avoid topic collisions on public broker
 MQTT_SESSION_ID = os.environ.get("RPM_SESSION_ID", "acl-rpm")
 MQTT_TOPIC_PATTERN = f"rpm/{MQTT_SESSION_ID}/+/#"
-MQTT_CLIENT_ID = f"rpm-backend-{MQTT_SESSION_ID}-test2"
+MQTT_CLIENT_ID = f"rpm-backend-{MQTT_SESSION_ID}-test"
 
 # ── Database ──────────────────────────────────────────
 DB_PATH = os.path.join(os.path.dirname(__file__), "vitals.db")
@@ -63,4 +63,7 @@ SYSTEM_SCOPES = os.environ.get("SYSTEM_SCOPES", "system/Patient.read system/Obse
 
 # Cerner Auto Sync Toggle
 ENABLE_CERNER_AUTO_SYNC = os.environ.get("ENABLE_CERNER_AUTO_SYNC", "true").lower() == "true"
+
+# App POV Mode (DEV or CUS) - reloaded dynamically
+APP_POV = os.environ.get("APP_POV", "DEV").upper()
 

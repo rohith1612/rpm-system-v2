@@ -15,6 +15,7 @@ from backend.config import (
     CLIENT_ID,
     REDIRECT_URI,
     SMART_SCOPES,
+    APP_POV,
 )
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -29,6 +30,7 @@ def get_fhir_config():
         "client_id": CLIENT_ID,
         "redirect_uri": REDIRECT_URI,
         "smart_scopes": SMART_SCOPES,
+        "app_pov": APP_POV,
     }
 
 
