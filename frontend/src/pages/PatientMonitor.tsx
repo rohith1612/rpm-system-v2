@@ -28,7 +28,7 @@ export default function PatientMonitor() {
   const [yScaleMode, setYScaleMode] = useState<'auto' | 'fixed'>('auto');
   const [yMin, setYMin] = useState<number | ''>('');
   const [yMax, setYMax] = useState<number | ''>('');
-  const [timeFilter, setTimeFilter] = useState<'5' | '15' | '30' | '60' | 'manual'>('5');
+  const [timeFilter, setTimeFilter] = useState<'5' | '15' | '30' | '60' | 'manual'>('15');
   const [manualMinutes, setManualMinutes] = useState<number | ''>('');
 
   const patient = id ? patients[id] : null;
@@ -99,7 +99,13 @@ export default function PatientMonitor() {
     }
   }
 
-  // Filter based on selected time limit
+  // Filter based on selected time limit (sliding window: always the trailing
+  // N minutes, shifting forward as new data arrives).
+  // Point cap is sized for 60 min of live data at a ~2s update rate (~1800
+  // points); the old 500 cap was tighter than that, so at higher zoom levels
+  // it clipped old points before the selected window was reached -
+  // reintroducing the "old data disappears" bug at a higher point count.
+  const MAX_CHART_POINTS = 2000;
   const latestTimestamp = allData.length > 0 ? Math.max(...allData.map(d => d.timestampMs)) : Date.now();
   let filterMinutes = 60;
   if (timeFilter === 'manual') {
@@ -108,9 +114,7 @@ export default function PatientMonitor() {
     filterMinutes = parseInt(timeFilter, 10);
   }
   const filterMs = filterMinutes * 60 * 1000;
-
-  // We limit to the last 500 points for performance, but only those within filterMs
-  const filteredData = allData.filter(d => d.timestampMs >= latestTimestamp - filterMs).slice(-500);
+  const filteredData = allData.filter(d => d.timestampMs >= latestTimestamp - filterMs).slice(-MAX_CHART_POINTS);
 
   // Insert null-value break points (1m for DB history, 10s for live data)
   const baseChartData: any[] = [];

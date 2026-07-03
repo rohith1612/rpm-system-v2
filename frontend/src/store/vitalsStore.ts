@@ -66,8 +66,13 @@ export const useAppStore = create<AppState>((set) => ({
   
   addVitalReading: (patientId, vital) => set((state) => {
     const prevHistory = state.vitalsHistory[patientId] || [];
-    // Keep only a chunk in state, the chart handles merging history and live nicely
-    const newHistory = [...prevHistory, vital].slice(-100);
+    // Cap by time (not count) so live data covers the chart's full 60-minute filter window
+    // regardless of how frequently readings arrive; a count-based cap let old points age out
+    // and vanish from the merged chart before the page's static historicalData fetch could cover them.
+    const cutoff = Date.now() - 60 * 60 * 1000;
+    const newHistory = [...prevHistory, vital].filter(
+      (v) => new Date(v.recorded_at).getTime() >= cutoff
+    );
     return {
       vitalsHistory: { ...state.vitalsHistory, [patientId]: newHistory },
       latestVitals: { ...state.latestVitals, [patientId]: vital }
