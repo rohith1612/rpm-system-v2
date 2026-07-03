@@ -104,15 +104,14 @@ export default function IcuFloor() {
             return (
               <div key={bedId} className={`bed ${isLive ? 'live' : ''} ${isCritical ? 'critical' : ''}`} onClick={() => handleBedClick(bedId)} style={{ cursor: 'pointer' }}>
                 <div className="bed-top">
-                  <div className="bed-num"><span className="pat-dot" style={{ background: statusColor, boxShadow: 'none' }}></span>{bedId}</div>
+                  <div className="bed-num"><span className="pat-dot" style={{ background: statusColor, boxShadow: 'none' }}></span>{patient.name}</div>
                   <div className="bed-tags">
                     {isLive ? <span className="bt live" style={{ background: statusColor }}>LIVE</span> : <span className="bt" style={{ border: '1px solid var(--line)' }}>OFFLINE</span>}
                     <span className="bt fhir">FHIR</span>
                     <span className="bed-x" onClick={(e) => handleUnassign(e, bedId)}>&times;</span>
                   </div>
                 </div>
-                <div className="bed-pname">{patient.name}</div>
-                <div className="bed-meta2">AGE {patient.age} &middot; {patient.condition}</div>
+                <div className="bed-meta2">AGE {patient.age} &middot; {patient.condition} &middot; {bedId}</div>
                 <div className="bed-cerner2" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <span>CERNER {patient.id}</span>
                   <CopyButton text={patient.id} />

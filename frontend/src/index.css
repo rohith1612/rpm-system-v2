@@ -1082,7 +1082,7 @@ html[data-theme="light"] .mode-knob {
 .bed-num {
   font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 18px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1188,7 +1188,7 @@ html[data-theme="light"] .mode-knob {
 .bv2 {
   background: var(--scope-bg);
   text-align: center;
-  padding: 6px 2px;
+  padding: 10px 2px;
 }
 
 .bv2 .l {
@@ -1223,7 +1223,7 @@ html[data-theme="light"] .mode-knob {
   font-family: var(--font-mono);
   font-size: 9px;
   color: var(--ink-faint);
-  margin-top: 12px;
+  margin-top: auto;
 }
 
 .bed.armable {
