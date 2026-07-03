@@ -25,9 +25,7 @@ export default function PatientMonitor() {
 
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [yScaleMode, setYScaleMode] = useState<'auto' | 'fixed'>('auto');
-  const [yMin, setYMin] = useState<number | ''>('');
-  const [yMax, setYMax] = useState<number | ''>('');
+
   const [timeFilter, setTimeFilter] = useState<'5' | '15' | '30' | '60' | 'manual'>('5');
   const [manualMinutes, setManualMinutes] = useState<number | ''>('');
 
@@ -168,9 +166,6 @@ export default function PatientMonitor() {
   // Dynamic Y-axis scaling: use standard clinical ranges as defaults,
   // but expand if real data exceeds those bounds.
   const getYAxisDomain = (): [number | string, number | string] => {
-    if (yScaleMode === 'fixed') {
-      return [yMin === '' ? 'auto' : yMin, yMax === '' ? 'auto' : yMax];
-    }
     const defaults: Record<string, [number, number]> = {
       heart_rate: [70, 120],
       spo2: [90, 100],
