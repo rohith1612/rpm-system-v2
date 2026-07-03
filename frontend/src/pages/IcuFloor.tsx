@@ -13,10 +13,13 @@ export default function IcuFloor() {
   const [bedMap, setBedMap] = useState<Record<string, string>>({});
   const [bedsList, setBedsList] = useState<string[]>(['BED 101', 'BED 102', 'BED 103', 'BED 104', 'BED 105', 'BED 106', 'BED 107', 'BED 108']);
   const [showPatientModal, setShowPatientModal] = useState(false);
+  const [now, setNow] = useState(Date.now());
   const navigate = useNavigate();
 
   useEffect(() => {
     loadBeds();
+    const timer = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(timer);
   }, []);
 
   const loadBeds = async () => {
@@ -81,7 +84,7 @@ export default function IcuFloor() {
           const patient = patientId ? patients[patientId] : null;
 
           if (patient) {
-            const isLive = isPatientActive(patient);
+            const isLive = isPatientActive(patient, now);
             const isCritical = alerts.some(a => a.patient_id === patientId && a.severity === 'critical');
 
             const getVitalAlertSeverity = (vitalKey: string): string | null => {
@@ -122,11 +125,11 @@ export default function IcuFloor() {
                   })}
                 </div>
                 <div className="bed-vrow">
-                  <div className={`bv2 ${getVitalAlertSeverity('heart_rate') ? 'glow-' + getVitalAlertSeverity('heart_rate') : ''}`}><div className="l">HR</div><div className="v">{patient.heart_rate ?? '--'}</div><div className="u">bpm</div></div>
-                  <div className={`bv2 ${getVitalAlertSeverity('spo2') ? 'glow-' + getVitalAlertSeverity('spo2') : ''}`}><div className="l">O2</div><div className="v">{patient.spo2 ?? '--'}</div><div className="u">%</div></div>
-                  <div className={`bv2 ${getVitalAlertSeverity('temperature') ? 'glow-' + getVitalAlertSeverity('temperature') : ''}`}><div className="l">TMP</div><div className="v">{patient.temperature ?? '--'}</div><div className="u">&deg;F</div></div>
-                  <div className={`bv2 ${getVitalAlertSeverity('respiratory_rate') ? 'glow-' + getVitalAlertSeverity('respiratory_rate') : ''}`}><div className="l">RR</div><div className="v">{patient.respiratory_rate ?? '--'}</div><div className="u">br/min</div></div>
-                  <div className={`bv2 ${getVitalAlertSeverity('blood_pressure') ? 'glow-' + getVitalAlertSeverity('blood_pressure') : ''}`}><div className="l">BP</div><div className="v" style={{ fontSize: '15px' }}>{patient.systolic_bp ?? '--'}/{patient.diastolic_bp ?? '--'}</div><div className="u">mmHg</div></div>
+                  <div className={`bv2 ${getVitalAlertSeverity('heart_rate') ? 'glow-' + getVitalAlertSeverity('heart_rate') : ''}`}><div className="l">HR</div><div className="v">{isLive ? (patient.heart_rate ?? '--') : '--'}</div><div className="u">bpm</div></div>
+                  <div className={`bv2 ${getVitalAlertSeverity('spo2') ? 'glow-' + getVitalAlertSeverity('spo2') : ''}`}><div className="l">O2</div><div className="v">{isLive ? (patient.spo2 ?? '--') : '--'}</div><div className="u">%</div></div>
+                  <div className={`bv2 ${getVitalAlertSeverity('temperature') ? 'glow-' + getVitalAlertSeverity('temperature') : ''}`}><div className="l">TMP</div><div className="v">{isLive ? (patient.temperature ?? '--') : '--'}</div><div className="u">&deg;F</div></div>
+                  <div className={`bv2 ${getVitalAlertSeverity('respiratory_rate') ? 'glow-' + getVitalAlertSeverity('respiratory_rate') : ''}`}><div className="l">RR</div><div className="v">{isLive ? (patient.respiratory_rate ?? '--') : '--'}</div><div className="u">br/min</div></div>
+                  <div className={`bv2 ${getVitalAlertSeverity('blood_pressure') ? 'glow-' + getVitalAlertSeverity('blood_pressure') : ''}`}><div className="l">BP</div><div className="v" style={{ fontSize: '10px' }}>{isLive ? `${patient.systolic_bp ?? '--'}/${patient.diastolic_bp ?? '--'}` : '--/--'}</div><div className="u">mmHg</div></div>
                 </div>
                 <div className="bed-sys2">
                   <span>SYS_STAT: {isLive ? 'ONLINE' : 'STALE'}</span>

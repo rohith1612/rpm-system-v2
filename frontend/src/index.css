@@ -1207,7 +1207,7 @@ html[data-theme="light"] .mode-knob {
 
 .bv2 .v {
   font-family: var(--font-mono);
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 700;
   margin-top: 2px;
 }
