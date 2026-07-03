@@ -131,11 +131,6 @@ function plethAmplitude(tMs: number, rrMs: number): number {
   return val - 0.5; // center around 0
 }
 
-function respAmplitude(tMs: number, respMs: number): number {
-  const tNorm = tMs / respMs;
-  return Math.sin(tNorm * Math.PI * 2) * 0.4; // smooth slow sine wave
-}
-
 export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II", isDataStale = false }: Props) {
   const { theme } = useUiStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
