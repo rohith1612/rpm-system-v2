@@ -5,14 +5,15 @@ and broadcasts to WebSocket clients.
 
 import asyncio
 import json
+import threading
+import time
 
 import paho.mqtt.client as mqtt
 
-from backend.config import (MQTT_BROKER, MQTT_CLIENT_ID, MQTT_PORT,
-                            MQTT_TOPIC_PATTERN)
+from backend.config import (MQTT_BROKER, MQTT_CLIENT_ID_VITALS, MQTT_CLIENT_ID_ECG, MQTT_PORT,
+                            MQTT_SESSION_ID)
 from backend.services.alert_service import check_vitals
 from backend.services.vitals_service import store_vitals, store_ecg
-import time
 
 # Will be set by main.py on startup
 _event_loop = None
@@ -28,12 +29,6 @@ def set_broadcast_fn(fn):
     """Register the WebSocket broadcast coroutine."""
     global _broadcast_fn
     _broadcast_fn = fn
-
-
-def _on_connect(client, userdata, flags, reason_code, properties):
-    print(f"[MQTT] Connected to {MQTT_BROKER} (rc={reason_code})")
-    client.subscribe(MQTT_TOPIC_PATTERN)
-    print(f"[MQTT] Subscribed to: {MQTT_TOPIC_PATTERN}")
 
 
 def _on_message(client, userdata, msg):
@@ -145,18 +140,73 @@ def _on_message(client, userdata, msg):
 
 
 def start_mqtt_listener():
-    """Create and start the MQTT client (runs in background thread)."""
-    client = mqtt.Client(
+    """Create and start the MQTT clients for vitals and ecg in two separate threads."""
+    # Vitals client
+    vitals_client = mqtt.Client(
         callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
-        client_id=MQTT_CLIENT_ID,
+        client_id=MQTT_CLIENT_ID_VITALS,
         transport="websockets" if MQTT_PORT in (8083, 8084) else "tcp",
     )
     if MQTT_PORT in (8883, 8084):
-        client.tls_set()
-    client.on_connect = _on_connect
-    client.on_message = _on_message
+        vitals_client.tls_set()
 
-    client.connect(MQTT_BROKER, MQTT_PORT, 60)
-    client.loop_start()
-    print(f"[MQTT] Listener started (session: {MQTT_CLIENT_ID})")
-    return client
+    def on_connect_vitals(client, userdata, flags, reason_code, properties):
+        print(f"[MQTT] Vitals client connected to {MQTT_BROKER} (rc={reason_code})")
+        topic = f"rpm/{MQTT_SESSION_ID}/+/vitals"
+        client.subscribe(topic)
+        print(f"[MQTT] Vitals client subscribed to: {topic}")
+
+    vitals_client.on_connect = on_connect_vitals
+    vitals_client.on_message = _on_message
+
+    # ECG client
+    ecg_client = mqtt.Client(
+        callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+        client_id=MQTT_CLIENT_ID_ECG,
+        transport="websockets" if MQTT_PORT in (8083, 8084) else "tcp",
+    )
+    if MQTT_PORT in (8883, 8084):
+        ecg_client.tls_set()
+
+    def on_connect_ecg(client, userdata, flags, reason_code, properties):
+        print(f"[MQTT] ECG client connected to {MQTT_BROKER} (rc={reason_code})")
+        topic = f"rpm/{MQTT_SESSION_ID}/+/ecg"
+        client.subscribe(topic)
+        print(f"[MQTT] ECG client subscribed to: {topic}")
+
+    ecg_client.on_connect = on_connect_ecg
+    ecg_client.on_message = _on_message
+
+    # Start loops in separate threads using thread execution
+    vitals_thread = threading.Thread(
+        target=lambda: (vitals_client.connect(MQTT_BROKER, MQTT_PORT, 60), vitals_client.loop_forever()),
+        daemon=True,
+        name="MQTT-Vitals-Thread"
+    )
+    ecg_thread = threading.Thread(
+        target=lambda: (ecg_client.connect(MQTT_BROKER, MQTT_PORT, 60), ecg_client.loop_forever()),
+        daemon=True,
+        name="MQTT-ECG-Thread"
+    )
+
+    vitals_thread.start()
+    ecg_thread.start()
+    print(f"[MQTT] Dual listener threads started (vitals: {MQTT_CLIENT_ID_VITALS}, ecg: {MQTT_CLIENT_ID_ECG})")
+
+    class MultiMQTTClient:
+        def __init__(self, c1, c2):
+            self.c1 = c1
+            self.c2 = c2
+        def loop_stop(self):
+            pass
+        def disconnect(self):
+            try:
+                self.c1.disconnect()
+            except Exception:
+                pass
+            try:
+                self.c2.disconnect()
+            except Exception:
+                pass
+
+    return MultiMQTTClient(vitals_client, ecg_client)

@@ -13,6 +13,8 @@ MQTT_PORT = 1883
 MQTT_SESSION_ID = os.environ.get("RPM_SESSION_ID", "acl-rpm")
 MQTT_TOPIC_PATTERN = f"rpm/{MQTT_SESSION_ID}/+/#"
 MQTT_CLIENT_ID = f"rpm-backend-{MQTT_SESSION_ID}-{secrets.token_hex(4)}"
+MQTT_CLIENT_ID_VITALS = f"rpm-backend-vitals-{MQTT_SESSION_ID}-{secrets.token_hex(4)}"
+MQTT_CLIENT_ID_ECG = f"rpm-backend-ecg-{MQTT_SESSION_ID}-{secrets.token_hex(4)}"
 
 # ── Database ──────────────────────────────────────────
 DB_PATH = os.path.join(os.path.dirname(__file__), "vitals.db")
