@@ -59,18 +59,20 @@ export default function Shell() {
   }
 
   return (
-    <div className="shell">
-      <Sidebar />
-      <PatientDrawer />
+    <div className="shell-wrapper" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      <StatusBar />
       
-      <div className="main">
-        <StatusBar />
+      <div className="shell" style={{ flex: 1, minHeight: 0 }}>
+        <Sidebar />
+        <PatientDrawer />
         
-        <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-          {/* Outlet renders either IcuFloor or PatientMonitor */}
-          <Outlet />
-          
-          <AlertsRail />
+        <div className="main">
+          <div style={{ display: 'flex', flex: 1, minHeight: 0, height: '100%' }}>
+            {/* Outlet renders either IcuFloor or PatientMonitor */}
+            <Outlet />
+            
+            <AlertsRail />
+          </div>
         </div>
       </div>
     </div>

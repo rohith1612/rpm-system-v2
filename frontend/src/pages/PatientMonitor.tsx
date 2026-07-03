@@ -65,7 +65,7 @@ export default function PatientMonitor() {
   if (!isPatientActive(patient, now)) {
     return (
       <div className="content">
-        <div className="identity" style={{ marginTop: '10px' }}>
+        <div className="identity">
           <div>
             <h1 style={{ display: 'inline' }}>{patient.name}</h1>
             <span className="meta" style={{ display: 'inline-flex', alignItems: 'center' }}>
@@ -385,7 +385,7 @@ export default function PatientMonitor() {
         </div>*/}
       </div>
 
-      <div className="identity" style={{ marginTop: '10px' }}>
+      <div className="identity">
         <div>
           <h1 style={{ display: 'inline' }}>{patient.name}</h1>
           <span className="meta" style={{ display: 'inline-flex', alignItems: 'center' }}>
@@ -402,7 +402,7 @@ export default function PatientMonitor() {
       </div>
 
       {activeTab === 'vitals' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', flex: 1, marginTop: '10px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', flex: 1 }}>
           <div className="vstrip">
             <div className={`vcell ${selectedVital === 'heart_rate' ? 'sel' : ''} ${getVitalAlertSeverity('heart_rate') ? 'glow-' + getVitalAlertSeverity('heart_rate') : ''}`} onClick={() => setSelectedVital('heart_rate')}>
               <div className="tag">HR</div><div className="label">Heart Rate</div><div className="num">{patient.heart_rate ?? '--'}</div><div className="unit">bpm</div><div className="ind" style={{ background: 'var(--green)' }}></div>
@@ -476,23 +476,22 @@ export default function PatientMonitor() {
       )}
 
       {activeTab === 'ecg' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, marginTop: '10px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, minHeight: 0 }}>
           <div className={isEcgExpanded ? "ecg-grid-layout-fullscreen" : "ecg-grid-layout"}>
             <div className="ecg-stats-col">
               <div className="ecg-stat-row"><div className="l">Rhythm</div><div className="v rhythm">{ecg?.rhythm || 'Normal Sinus Rhythm'}</div></div>
               <div className="ecg-stat-row"><div className="l">PR Interval</div><div className="v">{ecg?.pr_interval || '--'} <span className="u">ms</span></div></div>
               <div className="ecg-stat-row"><div className="l">QRS Duration</div><div className="v">{ecg?.qrs_duration || '--'} <span className="u">ms</span></div></div>
               <div className="ecg-stat-row"><div className="l">QT Interval</div><div className="v">{ecg?.qt_interval || '--'} <span className="u">ms</span></div></div>
-            </div>
-            <div className="ecg-traces" style={{ display: 'flex', flexDirection: 'column' }}>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
-                <button className="ghost-btn" style={{ padding: '4px 8px', fontSize: '10px' }} onClick={() => setIsEcgExpanded(!isEcgExpanded)}>
+              <div className="ecg-stat-row" style={{ display: 'flex', justifyContent: 'center', paddingTop: '20px', paddingBottom: '20px' }}>
+                <button className="ghost-btn" style={{ padding: '4px 8px', fontSize: '10px', width: '100%', justifyContent: 'center' }} onClick={() => setIsEcgExpanded(!isEcgExpanded)}>
                   {isEcgExpanded ? "CLOSE FULLSCREEN" : "EXPAND"}
                 </button>
               </div>
+            </div>
+            <div className="ecg-traces" style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
 
-              <div className="trace-card" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <div className="trace-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: '280px' }}>
                 <EcgWaveform ecg={ecg as any} patient={patient} waveType="ecg" lead="II" />
               </div>
 

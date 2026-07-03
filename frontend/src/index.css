@@ -98,7 +98,7 @@ body {
   justify-content: center;
   border: 1px solid var(--green);
   border-radius: 2px;
-  color: var(--black);
+  color: black;
   background-color: #ffffff;
   cursor: pointer;
 }
@@ -481,10 +481,10 @@ html[data-theme="light"] .mode-knob {
 .content {
   flex: 1;
   overflow: auto;
-  padding: 24px 28px;
+  padding: 12px 28px 24px 28px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
 }
 
 /* nav segments (Vitals / ECG / AI) */
