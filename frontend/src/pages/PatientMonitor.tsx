@@ -35,6 +35,12 @@ export default function PatientMonitor() {
   const ecg = storeEcg || patient?.ecg;
   const [historicalData, setHistoricalData] = useState<any[]>([]);
   const [loadTime] = useState<number>(Date.now());
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (id) {
@@ -56,7 +62,7 @@ export default function PatientMonitor() {
     );
   }
 
-  if (!isPatientActive(patient)) {
+  if (!isPatientActive(patient, now)) {
     return (
       <div className="content">
         <div className="identity" style={{ marginTop: '10px' }}>

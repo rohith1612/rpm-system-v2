@@ -11,7 +11,7 @@ MQTT_PORT = 1883
 # Unique session prefix to avoid topic collisions on public broker
 MQTT_SESSION_ID = os.environ.get("RPM_SESSION_ID", "acl-rpm")
 MQTT_TOPIC_PATTERN = f"rpm/{MQTT_SESSION_ID}/+/#"
-MQTT_CLIENT_ID = f"rpm-backend-{MQTT_SESSION_ID}-test"
+MQTT_CLIENT_ID = f"rpm-backend-{MQTT_SESSION_ID}-test_aaryan"
 
 # ── Database ──────────────────────────────────────────
 DB_PATH = os.path.join(os.path.dirname(__file__), "vitals.db")

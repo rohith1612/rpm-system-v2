@@ -151,5 +151,5 @@ export function isPatientActive(patient: Patient | null, now: number = Date.now(
   } else {
     timeMs = new Date(patient.recorded_at).getTime();
   }
-  return (now - timeMs) < 60000;
+  return (now - timeMs) < 15000;
 }
