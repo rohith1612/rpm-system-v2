@@ -815,3 +815,21 @@ export async function sendVitalsToCerner(
   console.log("[FHIR] Individual vital saves completed successfully!");
   return { status: "success", detail: "individual_saves", results };
 }
+
+/**
+ * Refresh access token using refresh_token.
+ */
+export async function refreshAccessToken(refreshToken: string): Promise<any> {
+  const response = await fetch(`${API_BASE}/auth/refresh`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh_token: refreshToken })
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Token refresh failed: ${err}`);
+  }
+
+  return response.json();
+}

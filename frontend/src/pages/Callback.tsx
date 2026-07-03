@@ -80,6 +80,9 @@ export default function Callback() {
         // Store active token/iss context in session storage for authentication check
         sessionStorage.setItem("smart_access_token", accessToken);
         sessionStorage.setItem("smart_patient_id", cernerPatientId);
+        if (tokenResp.refresh_token) {
+          sessionStorage.setItem("smart_refresh_token", tokenResp.refresh_token);
+        }
         
         const expiresIn = tokenResp.expires_in || 3600;
         const expiresAt = Date.now() + expiresIn * 1000;

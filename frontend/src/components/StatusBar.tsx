@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useUiStore } from '../store/uiStore';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { refreshAccessToken } from '../utils/fhir';
 
 export default function StatusBar() {
   const { theme, toggleTheme } = useUiStore();
@@ -28,9 +29,44 @@ export default function StatusBar() {
         if (diffMs <= 0) {
           // Token has expired! Clean context and trigger auto-relaunch
           sessionStorage.removeItem("smart_access_token");
+          sessionStorage.removeItem("smart_refresh_in_progress");
           sessionStorage.setItem("smart_auto_launch", "true");
           window.location.href = "/launch";
           return;
+        }
+
+        // Refresh token if about to expire (less than 5 minutes / 300000ms remaining)
+        if (diffMs <= 300000 && !sessionStorage.getItem("smart_refresh_in_progress")) {
+          sessionStorage.setItem("smart_refresh_in_progress", "true");
+          const token = sessionStorage.getItem("smart_access_token");
+          const refreshToken = sessionStorage.getItem("smart_refresh_token");
+          
+          if (token === "mock_offline_demo_token") {
+            // Offline demo mode: silently auto-extend mock token
+            const mockExpiresIn = 3600;
+            const mockExpiresAt = Date.now() + mockExpiresIn * 1000;
+            sessionStorage.setItem("smart_expires_at", mockExpiresAt.toString());
+            sessionStorage.removeItem("smart_refresh_in_progress");
+            console.log("[Auth] Mock token auto-extended.");
+          } else if (refreshToken) {
+            refreshAccessToken(refreshToken).then((newTokens) => {
+              sessionStorage.setItem("smart_access_token", newTokens.access_token);
+              if (newTokens.refresh_token) {
+                sessionStorage.setItem("smart_refresh_token", newTokens.refresh_token);
+              }
+              const newExpiresIn = newTokens.expires_in || 3600;
+              const newExpiresAt = Date.now() + newExpiresIn * 1000;
+              sessionStorage.setItem("smart_expires_in", newExpiresIn.toString());
+              sessionStorage.setItem("smart_expires_at", newExpiresAt.toString());
+              sessionStorage.removeItem("smart_refresh_in_progress");
+              console.log("[Auth] Session token refreshed successfully.");
+            }).catch((err) => {
+              console.error("[Auth] Token refresh failed:", err);
+              sessionStorage.removeItem("smart_refresh_in_progress");
+            });
+          } else {
+            sessionStorage.removeItem("smart_refresh_in_progress");
+          }
         }
         
         const diffMins = Math.max(0, Math.ceil(diffMs / 60000));

@@ -51,6 +51,44 @@ def _on_message(client, userdata, msg):
 
         payload["patient_id"] = patient_id
 
+        if msg_type != "ecg":
+            import os
+            from datetime import datetime, timezone, timedelta
+            time_sent_raw = payload.get("timestamp") or payload.get("time_sent") or time.time()
+            ist_tz = timezone(timedelta(hours=5, minutes=30))
+            if isinstance(time_sent_raw, (int, float)):
+                if time_sent_raw > 1e11:
+                    time_sent_raw /= 1000.0
+                try:
+                    time_sent_iso = datetime.fromtimestamp(time_sent_raw, ist_tz).isoformat()
+                except Exception:
+                    time_sent_iso = str(time_sent_raw)
+            else:
+                try:
+                    val = str(time_sent_raw)
+                    if val.endswith("Z"):
+                        val = val[:-1] + "+00:00"
+                    dt = datetime.fromisoformat(val)
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                    time_sent_iso = dt.astimezone(ist_tz).isoformat()
+                except Exception:
+                    time_sent_iso = str(time_sent_raw)
+
+            uuid_val = payload.get("uuid") or payload.get("UUID") or "N/A"
+            hr = payload.get("heart_rate", "--")
+            spo2 = payload.get("spo2", "--")
+            rr = payload.get("respiratory_rate", "--")
+            sys_bp = payload.get("systolic_bp", "--")
+            dia_bp = payload.get("diastolic_bp", "--")
+            temp = payload.get("temperature", "--")
+
+            log_line = f"Time Sent: {time_sent_iso}, UUID: {uuid_val}, Vitals: {{ heart_rate: {hr}, spo2: {spo2}, respiratory_rate: {rr}, systolic_bp: {sys_bp}, diastolic_bp: {dia_bp}, temperature: {temp} }}\n"
+            root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            log_path = os.path.join(root_dir, "analyze.txt")
+            with open(log_path, "a") as f:
+                f.write(log_line)
+
         # Verify patient is assigned to a bed before processing
         from backend.services.bed_service import get_active_patient_ids
         if patient_id not in get_active_patient_ids():
