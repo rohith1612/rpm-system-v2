@@ -17,7 +17,7 @@ interface UiState {
 export const useUiStore = create<UiState>((set) => ({
   theme: (localStorage.getItem('rpm-theme2') as 'light' | 'dark') || 'dark',
   drawerOpen: window.innerWidth > 760,
-  alertsRailOpen: window.innerWidth > 1150,
+  alertsRailOpen: false,
   armedPatientId: null,
 
   toggleTheme: () => set((state) => {

@@ -52,7 +52,8 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-body);
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   transition: background .2s, color .2s;
 }
 
@@ -86,7 +87,7 @@ body {
 /* ============ SHELL ============ */
 .shell {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
 }
 
 /* ============ ICON RAIL ============ */
@@ -1404,4 +1405,28 @@ html[data-theme="light"] .mode-knob {
 
 .sig span.glow-critical {
   box-shadow: 0 0 8px rgba(239, 68, 68, 0.8), 0 0 12px rgba(239, 68, 68, 0.8);
+}
+
+/* ============ CUSTOM SCROLLBAR ============ */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ink-dim);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--green);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ink-dim) transparent;
 }

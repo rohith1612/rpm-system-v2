@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import PatientModal from './PatientModal';
 import { deletePatient } from '../api';
 export default function PatientDrawer() {
-  const { drawerOpen, armedPatientId, setArmedPatient } = useUiStore();
+  const { drawerOpen, armedPatientId, setArmedPatient, setDrawerOpen } = useUiStore();
   const { patients } = useWebSocket();
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
@@ -38,7 +38,30 @@ export default function PatientDrawer() {
   return (
     <div className={`drawer ${drawerOpen ? 'open' : ''}`}>
       <div className="drawer-inner">
-        <div className="drawer-label">Patients</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <div className="drawer-label" style={{ marginBottom: 0 }}>Patients</div>
+          <button 
+            onClick={() => setDrawerOpen(false)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--ink-faint)',
+              cursor: 'pointer',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'color 0.15s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--ink)'}
+            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--ink-faint)'}
+            title="Close Drawer"
+          >
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
         {Object.values(patients).map((patient) => {
           const isArmed = armedPatientId === patient.id;
           return (

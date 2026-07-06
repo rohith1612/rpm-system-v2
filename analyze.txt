@@ -5825,3 +5825,5 @@ Time Sent: 2026-07-06T12:21:30+05:30, UUID: 6a60771c-3f6e-4229-b300-f286f092446d
 Time Sent: 2026-07-06T12:21:33+05:30, UUID: efc0f1e1-21b8-4181-9f8a-dfdece910f9e, Vitals: { heart_rate: 75, spo2: 97.1, respiratory_rate: 10, systolic_bp: 108, diastolic_bp: 75, temperature: 101.8 }
 Time Sent: 2026-07-06T12:21:36+05:30, UUID: 60a479df-c855-4b1a-b7b1-08ce62b3be48, Vitals: { heart_rate: 77, spo2: 96.9, respiratory_rate: 10, systolic_bp: 110, diastolic_bp: 74, temperature: 101.9 }
 Time Sent: 2026-07-06T12:21:39+05:30, UUID: 0e496d4f-9fd1-44ac-9a08-cd0281eef21e, Vitals: { heart_rate: 77, spo2: 96.9, respiratory_rate: 10, systolic_bp: 112, diastolic_bp: 74, temperature: 102 }
+Time Sent: 2026-07-06T12:22:09+05:30, UUID: d666d9b9-bb83-4413-a4f0-186841a8100d, Vitals: { heart_rate: 83, spo2: 96.2, respiratory_rate: 10, systolic_bp: 115, diastolic_bp: 70, temperature: 102.2 }
+Time Sent: 2026-07-06T12:22:09+05:30, UUID: N/A, Vitals: { heart_rate: --, spo2: --, respiratory_rate: --, systolic_bp: --, diastolic_bp: --, temperature: -- }

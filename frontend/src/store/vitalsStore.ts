@@ -70,9 +70,11 @@ export const useAppStore = create<AppState>((set) => ({
     // regardless of how frequently readings arrive; a count-based cap let old points age out
     // and vanish from the merged chart before the page's static historicalData fetch could cover them.
     const cutoff = Date.now() - 60 * 60 * 1000;
-    const newHistory = [...prevHistory, vital].filter(
-      (v) => new Date(v.recorded_at).getTime() >= cutoff
-    );
+    let startIndex = 0;
+    while (startIndex < prevHistory.length && new Date(prevHistory[startIndex].recorded_at).getTime() < cutoff) {
+      startIndex++;
+    }
+    const newHistory = [...prevHistory.slice(startIndex), vital];
     return {
       vitalsHistory: { ...state.vitalsHistory, [patientId]: newHistory },
       latestVitals: { ...state.latestVitals, [patientId]: vital }

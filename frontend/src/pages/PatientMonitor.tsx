@@ -109,7 +109,7 @@ export default function PatientMonitor() {
   // it clipped old points before the selected window was reached -
   // reintroducing the "old data disappears" bug at a higher point count.
   const MAX_CHART_POINTS = 2000;
-  const latestTimestamp = allData.length > 0 ? Math.max(...allData.map(d => d.timestampMs)) : Date.now();
+  const latestTimestamp = allData.length > 0 ? allData[allData.length - 1].timestampMs : Date.now();
   let filterMinutes = 60;
   if (timeFilter === 'manual') {
     filterMinutes = typeof manualMinutes === 'number' && manualMinutes > 0 ? manualMinutes : 60;
@@ -117,7 +117,13 @@ export default function PatientMonitor() {
     filterMinutes = parseInt(timeFilter, 10);
   }
   const filterMs = filterMinutes * 60 * 1000;
-  const filteredData = allData.filter(d => d.timestampMs >= latestTimestamp - filterMs).slice(-MAX_CHART_POINTS);
+  const cutoff = latestTimestamp - filterMs;
+
+  let startIndex = 0;
+  while (startIndex < allData.length && allData[startIndex].timestampMs < cutoff) {
+    startIndex++;
+  }
+  const filteredData = allData.slice(startIndex).slice(-MAX_CHART_POINTS);
 
   // Insert null-value break points (1m for DB history, 10s for live data)
   const baseChartData: any[] = [];
