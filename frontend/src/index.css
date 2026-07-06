@@ -16,8 +16,8 @@
   --red: #ff5d72;
   --red-dim: rgba(255, 93, 114, .14);
   --blue: #5cc2e8;
-  --scope-bg: #070908;
-  --scope-grid: rgba(72, 230, 160, .09);
+  --scope-bg: #000000;
+  --scope-grid: rgba(255, 255, 255, 0.15);
   --font-display: 'Space Grotesk', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
   --font-body: 'Inter', sans-serif;
@@ -62,6 +62,25 @@ body {
 
 .disp {
   font-family: var(--font-display);
+}
+
+/* ============ SCROLLBARS ============ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ink-faint);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-dim);
 }
 
 /* ============ SHELL ============ */
@@ -192,18 +211,18 @@ body {
 }
 
 .drawer.open {
-  width: 268px;
+  width: 190px;
 }
 
 .drawer-inner {
-  width: 268px;
-  padding: 18px 16px;
+  width: 190px;
+  padding: 18px 8px;
 }
 
 .drawer-label {
   font-size: 10px;
   letter-spacing: .14em;
-  color: var(--ink-faint);
+  color: #ffffff;
   font-weight: 700;
   text-transform: uppercase;
   margin-bottom: 12px;
@@ -211,9 +230,9 @@ body {
 
 .pat-row {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: flex-start;
-  padding: 11px 10px;
+  padding: 10px 8px;
   border-radius: 3px;
   border-left: 2px solid var(--green);
   background: var(--green-dim);
@@ -368,12 +387,12 @@ body {
 }
 
 .sb-item .v {
-  color: var(--ink);
+  color: #ffffff;
   font-weight: 600;
 }
 
 .conn-ok {
-  color: var(--green);
+  color: #48e6a0;
 }
 
 .conn-bad {
@@ -480,8 +499,9 @@ html[data-theme="light"] .mode-knob {
 /* content scroll */
 .content {
   flex: 1;
-  overflow: auto;
-  padding: 12px 28px 24px 28px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 10px 24px 10px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -925,7 +945,7 @@ html[data-theme="light"] .mode-knob {
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: .12em;
-  color: var(--ink-faint);
+  color: #ffffff;
   font-weight: 700;
   text-transform: uppercase;
   display: flex;
@@ -1045,7 +1065,7 @@ html[data-theme="light"] .mode-knob {
 
 .bed {
   background: var(--bg-panel);
-  padding: 16px;
+  padding: 12px;
   min-height: 230px;
   display: flex;
   flex-direction: column;
@@ -1312,7 +1332,7 @@ html[data-theme="light"] .mode-knob {
 }
 
 .token-expiry-badge {
-  background: var(--line);
+  background: rgba(0, 0, 0, 0.25);
   color: #ffffff;
   font-size: 9.5px;
   padding: 1px 5px;

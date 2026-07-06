@@ -4,7 +4,7 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import { useAppStore } from '../store/vitalsStore';
 import { fetchPatientVitals } from '../api';
 import { isPatientActive } from '../types';
-import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import EcgWaveform from '../components/EcgWaveform';
 import '../components/EcgWaveform.css';
 import HistoryModal from '../components/HistoryModal';
@@ -137,23 +137,24 @@ export default function PatientMonitor() {
     baseChartData.push(filteredData[i]);
   }
 
-  // Map data for dashed (historical) and solid (live) rendering
   const chartData = baseChartData.map((d, index) => {
     const isHistorical = d.timestampMs <= loadTime;
     const nextIsLive = index < baseChartData.length - 1 && baseChartData[index + 1].timestampMs > loadTime;
 
     const mapped = { ...d };
+    
+    // Map all vitals for both historical and live rendering
+    ['heart_rate', 'spo2', 'temperature', 'respiratory_rate'].forEach(key => {
+      mapped[`${key}_historical`] = isHistorical ? d[key] : null;
+      mapped[`${key}_live`] = (!isHistorical || nextIsLive) ? d[key] : null;
+    });
 
-    if (selectedVital === 'blood_pressure') {
-      mapped.systolic_bp_historical = isHistorical ? d.systolic_bp : null;
-      mapped.systolic_bp_live = (!isHistorical || nextIsLive) ? d.systolic_bp : null;
-      mapped.diastolic_bp_historical = isHistorical ? d.diastolic_bp : null;
-      mapped.diastolic_bp_live = (!isHistorical || nextIsLive) ? d.diastolic_bp : null;
-    } else {
-      const val = d[selectedVital];
-      mapped[`${selectedVital}_historical`] = isHistorical ? val : null;
-      mapped[`${selectedVital}_live`] = (!isHistorical || nextIsLive) ? val : null;
-    }
+    // Special case for blood pressure
+    mapped.systolic_bp_historical = isHistorical ? d.systolic_bp : null;
+    mapped.systolic_bp_live = (!isHistorical || nextIsLive) ? d.systolic_bp : null;
+    mapped.diastolic_bp_historical = isHistorical ? d.diastolic_bp : null;
+    mapped.diastolic_bp_live = (!isHistorical || nextIsLive) ? d.diastolic_bp : null;
+
     return mapped;
   });
 
@@ -163,9 +164,9 @@ export default function PatientMonitor() {
 
   const getLineColor = (key: string) => {
     switch (key) {
-      case 'heart_rate': return 'var(--green)';
+      case 'heart_rate': return 'var(--amber)';
       case 'spo2': return 'var(--blue)';
-      case 'temperature': return 'var(--amber)';
+      case 'temperature': return 'var(--green)';
       case 'respiratory_rate': return 'var(--purple, #a855f7)';
       case 'blood_pressure': return 'var(--red)';
       default: return 'var(--accent)';
@@ -405,13 +406,13 @@ export default function PatientMonitor() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', flex: 1 }}>
           <div className="vstrip">
             <div className={`vcell ${selectedVital === 'heart_rate' ? 'sel' : ''} ${getVitalAlertSeverity('heart_rate') ? 'glow-' + getVitalAlertSeverity('heart_rate') : ''}`} onClick={() => setSelectedVital('heart_rate')}>
-              <div className="tag">HR</div><div className="label">Heart Rate</div><div className="num">{patient.heart_rate ?? '--'}</div><div className="unit">bpm</div><div className="ind" style={{ background: 'var(--green)' }}></div>
+              <div className="tag">HR</div><div className="label">Heart Rate</div><div className="num">{patient.heart_rate ?? '--'}</div><div className="unit">bpm</div><div className="ind" style={{ background: 'var(--amber)' }}></div>
             </div>
             <div className={`vcell ${selectedVital === 'spo2' ? 'sel' : ''} ${getVitalAlertSeverity('spo2') ? 'glow-' + getVitalAlertSeverity('spo2') : ''}`} onClick={() => setSelectedVital('spo2')}>
               <div className="tag">O2</div><div className="label">SpO₂</div><div className="num">{patient.spo2 ?? '--'}</div><div className="unit">%</div><div className="ind" style={{ background: 'var(--blue)' }}></div>
             </div>
             <div className={`vcell ${selectedVital === 'temperature' ? 'sel' : ''} ${getVitalAlertSeverity('temperature') ? 'glow-' + getVitalAlertSeverity('temperature') : ''}`} onClick={() => setSelectedVital('temperature')}>
-              <div className="tag">TMP</div><div className="label">Temperature</div><div className="num">{patient.temperature ?? '--'}</div><div className="unit">&deg;F</div><div className="ind" style={{ background: 'var(--amber)' }}></div>
+              <div className="tag">TMP</div><div className="label">Temperature</div><div className="num">{patient.temperature ?? '--'}</div><div className="unit">&deg;F</div><div className="ind" style={{ background: 'var(--green)' }}></div>
             </div>
             <div className={`vcell ${selectedVital === 'respiratory_rate' ? 'sel' : ''} ${getVitalAlertSeverity('respiratory_rate') ? 'glow-' + getVitalAlertSeverity('respiratory_rate') : ''}`} onClick={() => setSelectedVital('respiratory_rate')}>
               <div className="tag">RR</div><div className="label">Resp. Rate</div><div className="num">{patient.respiratory_rate ?? '--'}</div><div className="unit">br/min</div><div className="ind" style={{ background: 'var(--purple, #a855f7)' }}></div>
@@ -468,10 +469,73 @@ export default function PatientMonitor() {
                 {isGraphExpanded ? "CLOSE FULLSCREEN" : "EXPAND"}
               </button>
             </div>
-            <div className="scope" style={{ display: 'flex', height: isGraphExpanded ? 'calc(100% - 40px)' : '100%' }}>
+            <div className="scope" style={{ display: 'flex', height: isGraphExpanded ? 'calc(100% - 40px)' : '300px' }}>
               {renderVitalChart()}
             </div>
           </div>
+
+          {/* Composite Chart for HR, SpO2, and BP */}
+          {!isGraphExpanded && (
+            <div className="scope-panel" style={{ marginTop: '10px' }}>
+              <div className="scope-meta" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <span style={{ color: 'var(--ink)' }}>PATIENT HISTORY: LONGITUDINAL ANALYSIS</span>
+                  <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: 'var(--ink-dim)', fontFamily: 'var(--font-mono)' }}>
+                    <span style={{ color: getLineColor('heart_rate') }}>● Heart Rate</span>
+                    <span style={{ color: getLineColor('spo2') }}>● SpO₂</span>
+                    <span style={{ color: getLineColor('blood_pressure') }}>● Systolic BP</span>
+                  </div>
+                </div>
+              </div>
+              <div className="scope" style={{ display: 'flex', height: '300px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="colorHr" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={getLineColor('heart_rate')} stopOpacity={0.1}/>
+                        <stop offset="95%" stopColor={getLineColor('heart_rate')} stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorSpo2" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={getLineColor('spo2')} stopOpacity={0.1}/>
+                        <stop offset="95%" stopColor={getLineColor('spo2')} stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorBp" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={getLineColor('blood_pressure')} stopOpacity={0.1}/>
+                        <stop offset="95%" stopColor={getLineColor('blood_pressure')} stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
+                    <XAxis
+                      dataKey="timestampMs"
+                      type="number"
+                      domain={[xMin, xMax]}
+                      tickFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      stroke="var(--ink-dim)"
+                      tick={{ fontSize: 11, fill: 'var(--ink-dim)' }}
+                      minTickGap={100}
+                    />
+                    <YAxis
+                      stroke="var(--ink-dim)"
+                      tick={{ fontSize: 11, fill: 'var(--ink-dim)' }}
+                      domain={[0, 200]}
+                      allowDataOverflow={true}
+                    />
+                    <RechartsTooltip content={<CustomTooltip />} />
+                    
+                    {/* Live data areas */}
+                    <Area type="monotone" dataKey="heart_rate_live" stroke={getLineColor('heart_rate')} strokeWidth={2} fillOpacity={1} fill="url(#colorHr)" connectNulls={true} isAnimationActive={false} />
+                    <Area type="monotone" dataKey="spo2_live" stroke={getLineColor('spo2')} strokeWidth={2} fillOpacity={1} fill="url(#colorSpo2)" connectNulls={true} isAnimationActive={false} />
+                    <Area type="monotone" dataKey="systolic_bp_live" stroke={getLineColor('blood_pressure')} strokeWidth={2} fillOpacity={1} fill="url(#colorBp)" connectNulls={true} isAnimationActive={false} />
+                    
+                    {/* Historical data areas (dashed borders, no fill or light fill) */}
+                    <Area type="monotone" dataKey="heart_rate_historical" stroke={getLineColor('heart_rate')} strokeWidth={2} strokeDasharray="5 5" fill="none" connectNulls={true} isAnimationActive={false} />
+                    <Area type="monotone" dataKey="spo2_historical" stroke={getLineColor('spo2')} strokeWidth={2} strokeDasharray="5 5" fill="none" connectNulls={true} isAnimationActive={false} />
+                    <Area type="monotone" dataKey="systolic_bp_historical" stroke={getLineColor('blood_pressure')} strokeWidth={2} strokeDasharray="5 5" fill="none" connectNulls={true} isAnimationActive={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

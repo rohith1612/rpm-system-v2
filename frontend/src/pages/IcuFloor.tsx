@@ -11,7 +11,7 @@ export default function IcuFloor() {
   const { patients, alerts } = useWebSocket();
   const { armedPatientId, setArmedPatient } = useUiStore();
   const [bedMap, setBedMap] = useState<Record<string, string>>({});
-  const [bedsList, setBedsList] = useState<string[]>(['BED 101', 'BED 102', 'BED 103', 'BED 104', 'BED 105', 'BED 106', 'BED 107', 'BED 108']);
+  const [bedsList, setBedsList] = useState<string[]>(['BED 101', 'BED 102', 'BED 103', 'BED 104', 'BED 105', 'BED 106']);
   const [showPatientModal, setShowPatientModal] = useState(false);
   const [now, setNow] = useState(Date.now());
   const navigate = useNavigate();
@@ -65,6 +65,16 @@ export default function IcuFloor() {
     setBedsList([...bedsList, `BED ${nextNum}`]);
   };
 
+  const handleDeleteBed = async (e: React.MouseEvent, bedId: string) => {
+    e.stopPropagation();
+    if (bedMap[bedId]) {
+      try {
+        await unassignBed(bedId);
+      } catch (err) {}
+    }
+    setBedsList(prev => prev.filter(b => b !== bedId));
+  };
+
   return (
     <div className="content" id="icuView">
       <div className="floor-head">
@@ -108,7 +118,10 @@ export default function IcuFloor() {
                   <div className="bed-tags">
                     {isLive ? <span className="bt live" style={{ background: statusColor }}>LIVE</span> : <span className="bt" style={{ border: '1px solid var(--line)' }}>OFFLINE</span>}
                     <span className="bt fhir">FHIR</span>
-                    <span className="bed-x" onClick={(e) => handleUnassign(e, bedId)}>&times;</span>
+                    <span className="bed-x" title="Unassign Patient" onClick={(e) => handleUnassign(e, bedId)}>&times;</span>
+                    <span className="bed-x" title="Delete Bed" onClick={(e) => handleDeleteBed(e, bedId)} style={{ marginLeft: '4px' }}>
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </span>
                   </div>
                 </div>
                 <div className="bed-meta2">AGE {patient.age} &middot; {patient.condition} &middot; {bedId}</div>
@@ -147,6 +160,11 @@ export default function IcuFloor() {
             >
               <div className="bed-top">
                 <div className="bed-num">{bedId}</div>
+                <div className="bed-tags">
+                  <span className="bed-x" title="Delete Bed" onClick={(e) => handleDeleteBed(e, bedId)}>
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  </span>
+                </div>
               </div>
               <div className="bed-empty-state">
                 <div className="lbl">UNASSIGNED</div>

@@ -185,11 +185,11 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
     const isDark = themeRef.current === 'dark';
 
     // Background
-    ctx.fillStyle = isDark ? "#081b14" : "#ffffff";
+    ctx.fillStyle = isDark ? "#000000" : "#ffffff";
     ctx.fillRect(0, 0, W, H);
 
     // Draw grid
-    ctx.strokeStyle = isDark ? "rgba(0, 200, 83, 0.15)" : "rgba(255, 130, 140, 0.35)";
+    ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.15)" : "rgba(255, 130, 140, 0.35)";
     ctx.lineWidth = 1;
     for (let x = 0; x < W; x += gridSmall) {
       ctx.beginPath();
@@ -210,7 +210,7 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
       ctx.stroke();
     }
     // Major grid lines
-    ctx.strokeStyle = isDark ? "rgba(0, 200, 83, 0.4)" : "rgba(255, 90, 100, 0.6)";
+    ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.35)" : "rgba(255, 90, 100, 0.6)";
     ctx.lineWidth = 1.5;
     for (let x = 0; x < W; x += gridLarge) {
       ctx.beginPath();
@@ -248,9 +248,8 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
 
     let shadowBlur = 0;
     if (isDark) {
-      if (waveType === "ecg") shadowBlur = 8;
-      else if (waveType === "pleth") shadowBlur = 5;
-      else shadowBlur = 3;
+      if (waveType === "pleth") shadowBlur = 5;
+      else if (waveType === "resp") shadowBlur = 3;
     }
 
     const stale = isDataStaleRef.current;
@@ -307,7 +306,9 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
       // Push new amplitude into circular buffer
       const buf = bufferRef.current;
       buf.push(amp);
-      if (buf.length > Math.floor(W)) {
+      
+      const SWEEP_SPEED_MULTIPLIER = 2.0;
+      if (buf.length > Math.floor(W / SWEEP_SPEED_MULTIPLIER)) {
         buf.shift();
       }
 
@@ -324,7 +325,7 @@ export default function EcgWaveform({ ecg, patient, waveType = "ecg", lead = "II
       ctx.lineJoin = "round";
       ctx.lineCap = "round";
       for (let i = 0; i < buf.length; i++) {
-        const x = i;
+        const x = i * SWEEP_SPEED_MULTIPLIER;
         const y = midY - buf[i] * ampScale;
         if (i === 0) {
           ctx.moveTo(x, y);
