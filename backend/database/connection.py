@@ -44,33 +44,74 @@ class ConnectionWrapper:
         # Translate placeholder ? to %s for PostgreSQL
         sql = sql.replace("?", "%s")
             
-        cur = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         try:
+            cur = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
             cur.execute(sql, params)
             return CursorWrapper(cur)
+        except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+            print(f"[RPM] Database connection error in execute: {e}. Resetting connection and retrying...")
+            if hasattr(_local, "conn"):
+                _local.conn = None
+            try:
+                new_conn = get_connection()
+                return new_conn.execute(sql, params)
+            except Exception as retry_err:
+                raise retry_err
         except Exception as e:
-            self.conn.rollback()
+            try:
+                self.conn.rollback()
+            except Exception:
+                pass
             raise e
 
     def executescript(self, script_sql):
-        cur = self.conn.cursor()
         try:
+            cur = self.conn.cursor()
             cur.execute(script_sql)
             self.conn.commit()
-        except Exception as e:
-            self.conn.rollback()
-            raise e
-        finally:
             cur.close()
+        except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+            print(f"[RPM] Database connection error in executescript: {e}. Resetting connection and retrying...")
+            if hasattr(_local, "conn"):
+                _local.conn = None
+            try:
+                new_conn = get_connection()
+                new_conn.executescript(script_sql)
+            except Exception as retry_err:
+                raise retry_err
+        except Exception as e:
+            try:
+                self.conn.rollback()
+            except Exception:
+                pass
+            raise e
 
     def commit(self):
-        self.conn.commit()
+        try:
+            self.conn.commit()
+        except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+            print(f"[RPM] Database connection error in commit: {e}. Resetting connection.")
+            if hasattr(_local, "conn"):
+                _local.conn = None
+            raise e
+        except Exception as e:
+            try:
+                self.conn.rollback()
+            except Exception:
+                pass
+            raise e
 
     def rollback(self):
-        self.conn.rollback()
+        try:
+            self.conn.rollback()
+        except Exception:
+            pass
 
     def close(self):
-        self.conn.close()
+        try:
+            self.conn.close()
+        except Exception:
+            pass
 
 
 def get_connection():

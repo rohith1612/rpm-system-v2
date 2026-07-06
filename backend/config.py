@@ -10,7 +10,7 @@ import secrets
 MQTT_BROKER = "broker.emqx.io"
 MQTT_PORT = 1883
 # Unique session prefix to avoid topic collisions on public broker
-MQTT_SESSION_ID = os.environ.get("RPM_SESSION_ID", "acl-rpm")
+MQTT_SESSION_ID = os.environ.get("RPM_SESSION_ID", "aclx-rpm")
 MQTT_TOPIC_PATTERN = f"rpm/{MQTT_SESSION_ID}/+/#"
 MQTT_CLIENT_ID = f"rpm-backend-{MQTT_SESSION_ID}-{secrets.token_hex(4)}"
 MQTT_CLIENT_ID_VITALS = f"rpm-backend-vitals-{MQTT_SESSION_ID}-{secrets.token_hex(4)}"

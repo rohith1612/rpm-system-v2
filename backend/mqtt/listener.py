@@ -79,10 +79,11 @@ def _on_message(client, userdata, msg):
             temp = payload.get("temperature", "--")
 
             log_line = f"Time Sent: {time_sent_iso}, UUID: {uuid_val}, Vitals: {{ heart_rate: {hr}, spo2: {spo2}, respiratory_rate: {rr}, systolic_bp: {sys_bp}, diastolic_bp: {dia_bp}, temperature: {temp} }}\n"
-            root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            log_path = os.path.join(root_dir, "analyze.txt")
-            with open(log_path, "a") as f:
-                f.write(log_line)
+            # Removed synchronous file I/O to prevent MQTT subscriber thread blocking and lagging
+            # root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            # log_path = os.path.join(root_dir, "analyze.txt")
+            # with open(log_path, "a") as f:
+            #     f.write(log_line)
 
         # Verify patient is assigned to a bed before processing
         from backend.services.bed_service import get_active_patient_ids
