@@ -59,6 +59,15 @@ def enqueue_vitals(patient_id: str, cerner_patient_id: str, vitals: Dict[str, An
     for key, spec in mappings.items():
         val = vitals.get(key)
         if val is not None:
+            # Convert Celsius to Fahrenheit for Cerner if the value is in the Celsius range
+            if key == "temperature":
+                try:
+                    f_val = float(val)
+                    if f_val < 50:  # If less than 50, it's definitely Celsius
+                        val = round((f_val * 9/5) + 32, 1)
+                except ValueError:
+                    pass
+
             _sync_queue.put({
                 "patient_id": patient_id,
                 "cerner_patient_id": cerner_patient_id,
