@@ -7,10 +7,12 @@ import secrets
 
 # Trigger backend configuration reload with fresh .env credentials
 # ── MQTT ──────────────────────────────────────────────
-MQTT_BROKER = "broker.emqx.io"
-MQTT_PORT = 1883
+MQTT_BROKER = os.environ.get("MQTT_BROKER", "broker.emqx.io")
+MQTT_PORT = int(os.environ.get("MQTT_PORT", "1883"))
+MQTT_USERNAME = os.environ.get("MQTT_USERNAME", "")
+MQTT_PASSWORD = os.environ.get("MQTT_PASSWORD", "")
 # Unique session prefix to avoid topic collisions on public broker
-MQTT_SESSION_ID = os.environ.get("RPM_SESSION_ID", "aclx-rpm")
+MQTT_SESSION_ID = os.environ.get("RPM_SESSION_ID", "acl-rpm")
 MQTT_TOPIC_PATTERN = f"rpm/{MQTT_SESSION_ID}/+/#"
 MQTT_CLIENT_ID = f"rpm-backend-{MQTT_SESSION_ID}-{secrets.token_hex(4)}"
 MQTT_CLIENT_ID_VITALS = f"rpm-backend-vitals-{MQTT_SESSION_ID}-{secrets.token_hex(4)}"

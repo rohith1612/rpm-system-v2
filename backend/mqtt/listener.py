@@ -11,7 +11,7 @@ import time
 import paho.mqtt.client as mqtt
 
 from backend.config import (MQTT_BROKER, MQTT_CLIENT_ID_VITALS, MQTT_CLIENT_ID_ECG, MQTT_PORT,
-                            MQTT_SESSION_ID)
+                            MQTT_SESSION_ID, MQTT_USERNAME, MQTT_PASSWORD)
 from backend.services.alert_service import check_vitals
 from backend.services.vitals_service import store_vitals, store_ecg
 
@@ -146,9 +146,12 @@ def start_mqtt_listener():
     vitals_client = mqtt.Client(
         callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
         client_id=MQTT_CLIENT_ID_VITALS,
-        transport="websockets" if MQTT_PORT in (8083, 8084) else "tcp",
+        transport="websockets" if MQTT_PORT in (8083, 8084, 8884) else "tcp",
     )
-    if MQTT_PORT in (8883, 8084):
+    if MQTT_USERNAME and MQTT_PASSWORD:
+        vitals_client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
+        
+    if MQTT_PORT in (8883, 8884, 8084):
         vitals_client.tls_set()
 
     def on_connect_vitals(client, userdata, flags, reason_code, properties):
@@ -164,9 +167,12 @@ def start_mqtt_listener():
     ecg_client = mqtt.Client(
         callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
         client_id=MQTT_CLIENT_ID_ECG,
-        transport="websockets" if MQTT_PORT in (8083, 8084) else "tcp",
+        transport="websockets" if MQTT_PORT in (8083, 8084, 8884) else "tcp",
     )
-    if MQTT_PORT in (8883, 8084):
+    if MQTT_USERNAME and MQTT_PASSWORD:
+        ecg_client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
+        
+    if MQTT_PORT in (8883, 8884, 8084):
         ecg_client.tls_set()
 
     def on_connect_ecg(client, userdata, flags, reason_code, properties):
