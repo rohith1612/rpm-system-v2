@@ -1,58 +1,50 @@
-# Node & Frontend (React/Vite)
-node_modules/
-dist/
-build/
-.npm/
-*.tsbuildinfo
-
-# Python & Backend (FastAPI)
+# ── Python ────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-env/
 venv/
-.env
 .venv/
+env/
+ENV/
+env.bak/
+venv.bak/
 pip-log.txt
 
-# Databases (VERY IMPORTANT)
+# ── Environment Variables ─────────────────────────────
+.env
+
+# ── Database ──────────────────────────────────────────
 *.sqlite3
 *.db
 *.db-journal
 backend/vitals.db
 
-# OS & Editor
+# ── Node / Frontend ──────────────────────────────────
+node_modules/
+dist/
+dist-ssr/
+build/
+.npm/
+*.tsbuildinfo
+*.local
+
+# ── OS & Editor ──────────────────────────────────────
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
 
-# Logs
+# ── Logs ─────────────────────────────────────────────
 logs/
 *.log
 npm-debug.log*
 
-# BMad / Agent
+# ── Agent / BMad ─────────────────────────────────────
 .agent/
 _bmad/
 _bmad-output/
 
-# Node / Frontend
-node_modules/
-dist/
-dist-ssr/
-*.local
-
-# Python Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# Deployments
+# ── Deployments ──────────────────────────────────────
 .vercel/
