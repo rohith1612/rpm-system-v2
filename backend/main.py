@@ -12,6 +12,7 @@ import sys
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
+
 load_dotenv(override=True)  # Force override with .env values
 
 from fastapi import FastAPI
@@ -23,7 +24,7 @@ from backend.config import CORS_ORIGINS, MQTT_SESSION_ID
 from backend.database.connection import init_db
 from backend.mqtt.listener import (set_broadcast_fn, set_event_loop,
                                    start_mqtt_listener)
-from backend.routers import patients, vitals, beds, auth
+from backend.routers import auth, beds, patients, vitals
 from backend.routers import websocket as ws_router
 
 
@@ -32,7 +33,7 @@ async def lifespan(app: FastAPI):
     # ── Startup ───────────────────────────────────────
     print(f"[RPM] Starting backend (MQTT session: {MQTT_SESSION_ID})")
 
-    # Initialize database tables 
+    # Initialize database tables
     init_db()
     print("[RPM] Database initialized")
 
@@ -46,9 +47,11 @@ async def lifespan(app: FastAPI):
 
     # Start automatic Cerner FHIR sync (every 60 seconds)
     from backend.config import ENABLE_CERNER_AUTO_SYNC
+
     if ENABLE_CERNER_AUTO_SYNC:
         try:
             from backend.services.cerner_auto_sync import start_auto_sync
+
             start_auto_sync()
         except ImportError:
             pass
@@ -82,7 +85,6 @@ app.include_router(vitals.router)
 app.include_router(ws_router.router)
 app.include_router(beds.router)
 app.include_router(auth.router)
-
 
 @app.get("/")
 def root():

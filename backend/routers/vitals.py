@@ -5,7 +5,8 @@ REST API endpoints for vital signs history and alerts.
 from fastapi import APIRouter, Query
 
 from backend.services.alert_service import get_patient_alerts
-from backend.services.vitals_service import get_vitals_history, get_hourly_history_aggregated
+from backend.services.vitals_service import (get_hourly_history_aggregated,
+                                             get_vitals_history)
 
 router = APIRouter(prefix="/api/patients", tags=["vitals"])
 

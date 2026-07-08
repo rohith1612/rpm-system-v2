@@ -9,14 +9,8 @@ import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from backend.config import (
-    CERNER_BASE_URL,
-    CERNER_TOKEN_URL,
-    CLIENT_ID,
-    REDIRECT_URI,
-    SMART_SCOPES,
-    APP_POV,
-)
+from backend.config import (APP_POV, CERNER_BASE_URL, CERNER_TOKEN_URL,
+                            CLIENT_ID, REDIRECT_URI, SMART_SCOPES)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -43,7 +37,7 @@ class TokenExchangeRequest(BaseModel):
 async def exchange_token(req: TokenExchangeRequest):
     """
     Proxy the OAuth2 authorization code → access token exchange.
-    
+
     This avoids CORS issues by performing the POST to the Cerner
     token endpoint from the backend instead of the browser.
     Public client flow: no client_secret needed.
@@ -63,7 +57,9 @@ async def exchange_token(req: TokenExchangeRequest):
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
     except httpx.RequestError as e:
-        raise HTTPException(status_code=502, detail=f"Failed to reach Cerner token endpoint: {str(e)}")
+        raise HTTPException(
+            status_code=502, detail=f"Failed to reach Cerner token endpoint: {str(e)}"
+        )
 
     if resp.status_code != 200:
         raise HTTPException(
@@ -82,7 +78,7 @@ class TokenRefreshRequest(BaseModel):
 async def refresh_token(req: TokenRefreshRequest):
     """
     Proxy the OAuth2 refresh token → new access token exchange.
-    
+
     This avoids CORS issues by performing the POST to the Cerner
     token endpoint from the backend instead of the browser.
     """
@@ -100,7 +96,9 @@ async def refresh_token(req: TokenRefreshRequest):
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
     except httpx.RequestError as e:
-        raise HTTPException(status_code=502, detail=f"Failed to reach Cerner token endpoint: {str(e)}")
+        raise HTTPException(
+            status_code=502, detail=f"Failed to reach Cerner token endpoint: {str(e)}"
+        )
 
     if resp.status_code != 200:
         raise HTTPException(

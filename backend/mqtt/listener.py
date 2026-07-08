@@ -10,10 +10,11 @@ import time
 
 import paho.mqtt.client as mqtt
 
-from backend.config import (MQTT_BROKER, MQTT_CLIENT_ID_VITALS, MQTT_CLIENT_ID_ECG, MQTT_PORT,
-                            MQTT_SESSION_ID, MQTT_USERNAME, MQTT_PASSWORD)
+from backend.config import (MQTT_BROKER, MQTT_CLIENT_ID_ECG,
+                            MQTT_CLIENT_ID_VITALS, MQTT_PASSWORD, MQTT_PORT,
+                            MQTT_SESSION_ID, MQTT_USERNAME)
 from backend.services.alert_service import check_vitals
-from backend.services.vitals_service import store_vitals, store_ecg
+from backend.services.vitals_service import store_ecg, store_vitals
 
 # Will be set by main.py on startup
 _event_loop = None
@@ -47,15 +48,19 @@ def _on_message(client, userdata, msg):
         payload["patient_id"] = patient_id
 
         if msg_type != "ecg":
-            import os
-            from datetime import datetime, timezone, timedelta
-            time_sent_raw = payload.get("timestamp") or payload.get("time_sent") or time.time()
+            from datetime import datetime, timedelta, timezone
+
+            time_sent_raw = (
+                payload.get("timestamp") or payload.get("time_sent") or time.time()
+            )
             ist_tz = timezone(timedelta(hours=5, minutes=30))
             if isinstance(time_sent_raw, (int, float)):
                 if time_sent_raw > 1e11:
                     time_sent_raw /= 1000.0
                 try:
-                    time_sent_iso = datetime.fromtimestamp(time_sent_raw, ist_tz).isoformat()
+                    time_sent_iso = datetime.fromtimestamp(
+                        time_sent_raw, ist_tz
+                    ).isoformat()
                 except Exception:
                     time_sent_iso = str(time_sent_raw)
             else:
@@ -87,6 +92,7 @@ def _on_message(client, userdata, msg):
 
         # Verify patient is assigned to a bed before processing
         from backend.services.bed_service import get_active_patient_ids
+
         if patient_id not in get_active_patient_ids():
             return
 
@@ -103,9 +109,9 @@ def _on_message(client, userdata, msg):
                 "st_offset": payload.get("st_offset"),
                 "rhythm": payload.get("rhythm"),
             }
-            
+
             store_ecg(patient_id, ws_message, time.time())
-            
+
             if _broadcast_fn and _event_loop:
                 asyncio.run_coroutine_threadsafe(_broadcast_fn(ws_message), _event_loop)
         else:
@@ -134,7 +140,9 @@ def _on_message(client, userdata, msg):
                 # Broadcast each alert separately
                 for alert in alerts:
                     alert_msg = {"type": "alert", **alert}
-                    asyncio.run_coroutine_threadsafe(_broadcast_fn(alert_msg), _event_loop)
+                    asyncio.run_coroutine_threadsafe(
+                        _broadcast_fn(alert_msg), _event_loop
+                    )
 
     except Exception as e:
         print(f"[MQTT] Error processing message: {e}")
@@ -150,7 +158,7 @@ def start_mqtt_listener():
     )
     if MQTT_USERNAME and MQTT_PASSWORD:
         vitals_client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
-        
+
     if MQTT_PORT in (8883, 8884, 8084):
         vitals_client.tls_set()
 
@@ -171,7 +179,7 @@ def start_mqtt_listener():
     )
     if MQTT_USERNAME and MQTT_PASSWORD:
         ecg_client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
-        
+
     if MQTT_PORT in (8883, 8884, 8084):
         ecg_client.tls_set()
 
@@ -186,26 +194,36 @@ def start_mqtt_listener():
 
     # Start loops in separate threads using thread execution
     vitals_thread = threading.Thread(
-        target=lambda: (vitals_client.connect(MQTT_BROKER, MQTT_PORT, 60), vitals_client.loop_forever()),
+        target=lambda: (
+            vitals_client.connect(MQTT_BROKER, MQTT_PORT, 60),
+            vitals_client.loop_forever(),
+        ),
         daemon=True,
-        name="MQTT-Vitals-Thread"
+        name="MQTT-Vitals-Thread",
     )
     ecg_thread = threading.Thread(
-        target=lambda: (ecg_client.connect(MQTT_BROKER, MQTT_PORT, 60), ecg_client.loop_forever()),
+        target=lambda: (
+            ecg_client.connect(MQTT_BROKER, MQTT_PORT, 60),
+            ecg_client.loop_forever(),
+        ),
         daemon=True,
-        name="MQTT-ECG-Thread"
+        name="MQTT-ECG-Thread",
     )
 
     vitals_thread.start()
     ecg_thread.start()
-    print(f"[MQTT] Dual listener threads started (vitals: {MQTT_CLIENT_ID_VITALS}, ecg: {MQTT_CLIENT_ID_ECG})")
+    print(
+        f"[MQTT] Dual listener threads started (vitals: {MQTT_CLIENT_ID_VITALS}, ecg: {MQTT_CLIENT_ID_ECG})"
+    )
 
     class MultiMQTTClient:
         def __init__(self, c1, c2):
             self.c1 = c1
             self.c2 = c2
+
         def loop_stop(self):
             pass
+
         def disconnect(self):
             try:
                 self.c1.disconnect()

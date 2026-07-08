@@ -58,17 +58,21 @@ CLIENT_ID = os.environ.get("CLIENT_ID", "")
 REDIRECT_URI = os.environ.get("REDIRECT_URI", "http://localhost:5173/callback")
 SMART_SCOPES = os.environ.get(
     "SMART_SCOPES",
-    "user/Patient.read user/Observation.read online_access openid profile fhirUser launch/patient"
+    "user/Patient.read user/Observation.read online_access openid profile fhirUser launch/patient",
 )
 
 # ── System Token (Client Credentials) ─────────────────
 SYSTEM_CLIENT_ID = os.environ.get("SYSTEM_CLIENT_ID", "")
 SYSTEM_SECRET = os.environ.get("SYSTEM_SECRET", "")
-SYSTEM_SCOPES = os.environ.get("SYSTEM_SCOPES", "system/Patient.read system/Observation.read system/Observation.write system/Encounter.read")
+SYSTEM_SCOPES = os.environ.get(
+    "SYSTEM_SCOPES",
+    "system/Patient.read system/Observation.read system/Observation.write system/Encounter.read",
+)
 
 # Cerner Auto Sync Toggle
-ENABLE_CERNER_AUTO_SYNC = os.environ.get("ENABLE_CERNER_AUTO_SYNC", "true").lower() == "true"
+ENABLE_CERNER_AUTO_SYNC = (
+    os.environ.get("ENABLE_CERNER_AUTO_SYNC", "true").lower() == "true"
+)
 
 # App POV Mode (DEV or CUS) - reloaded dynamically
 APP_POV = os.environ.get("APP_POV", "DEV").upper()
-

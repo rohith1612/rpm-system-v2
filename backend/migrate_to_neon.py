@@ -1,5 +1,6 @@
 import os
 import sqlite3
+
 import psycopg2
 from dotenv import load_dotenv
 
@@ -70,6 +71,7 @@ CREATE TABLE patient_beds (
 );
 """
 
+
 def migrate():
     print("Starting migration to NeonDB...")
     if not DATABASE_URL:
@@ -78,16 +80,25 @@ def migrate():
 
     # 1. Connect to SQLite and fetch data
     if not os.path.exists(DB_PATH):
-        print(f"Local SQLite database not found at {DB_PATH}. Creating tables in NeonDB without data.")
+        print(
+            f"Local SQLite database not found at {DB_PATH}. Creating tables in NeonDB without data."
+        )
         sqlite_patients = []
         sqlite_beds = []
     else:
         sqlite_conn = sqlite3.connect(DB_PATH)
         sqlite_conn.row_factory = sqlite3.Row
-        sqlite_patients = [dict(r) for r in sqlite_conn.execute("SELECT * FROM patients").fetchall()]
-        sqlite_beds = [dict(r) for r in sqlite_conn.execute("SELECT * FROM patient_beds").fetchall()]
+        sqlite_patients = [
+            dict(r) for r in sqlite_conn.execute("SELECT * FROM patients").fetchall()
+        ]
+        sqlite_beds = [
+            dict(r)
+            for r in sqlite_conn.execute("SELECT * FROM patient_beds").fetchall()
+        ]
         sqlite_conn.close()
-        print(f"Retrieved {len(sqlite_patients)} patients and {len(sqlite_beds)} beds from SQLite.")
+        print(
+            f"Retrieved {len(sqlite_patients)} patients and {len(sqlite_beds)} beds from SQLite."
+        )
 
     # 2. Connect to NeonDB
     pg_conn = psycopg2.connect(DATABASE_URL)
@@ -105,7 +116,14 @@ def migrate():
         for p in sqlite_patients:
             pg_cur.execute(
                 "INSERT INTO patients (id, name, age, condition, cerner_patient_id, registered_at) VALUES (%s, %s, %s, %s, %s, %s)",
-                (p["id"], p["name"], p["age"], p["condition"], p["cerner_patient_id"], p["registered_at"])
+                (
+                    p["id"],
+                    p["name"],
+                    p["age"],
+                    p["condition"],
+                    p["cerner_patient_id"],
+                    p["registered_at"],
+                ),
             )
         pg_conn.commit()
         print(f"Successfully inserted {len(sqlite_patients)} patients.")
@@ -115,7 +133,7 @@ def migrate():
         for b in sqlite_beds:
             pg_cur.execute(
                 "INSERT INTO patient_beds (bed_id, patient_id) VALUES (%s, %s)",
-                (b["bed_id"], b["patient_id"])
+                (b["bed_id"], b["patient_id"]),
             )
         pg_conn.commit()
         print(f"Successfully inserted {len(sqlite_beds)} beds.")
@@ -123,6 +141,7 @@ def migrate():
     pg_cur.close()
     pg_conn.close()
     print("Migration to NeonDB completed successfully!")
+
 
 if __name__ == "__main__":
     migrate()

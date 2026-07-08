@@ -11,7 +11,7 @@ def get_custom_thresholds(patient_id: str) -> dict:
     conn = get_connection()
     rows = conn.execute(
         "SELECT vital_type, warn_low, crit_low, warn_high, crit_high FROM patient_thresholds WHERE patient_id = ?",
-        (patient_id,)
+        (patient_id,),
     ).fetchall()
     return {r["vital_type"]: dict(r) for r in rows}
 
@@ -113,9 +113,10 @@ def get_patient_alerts(patient_id: str, limit: int = 50) -> list[dict]:
            LIMIT ?""",
         (patient_id, limit),
     ).fetchall()
-    
+
     results = []
     from datetime import datetime
+
     for r in rows:
         d = dict(r)
         if isinstance(d.get("created_at"), datetime):

@@ -5,13 +5,14 @@ Business logic for storing and retrieving vital sign data with in-memory caching
 import queue
 import threading
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 
 from backend.database.connection import get_connection
 
 vitals_queue = queue.Queue()
 latest_vitals_cache = {}
 latest_ecg_cache = {}
+
 
 def _ensure_patient(conn, patient_id: str):
     """
@@ -25,17 +26,20 @@ def _ensure_patient(conn, patient_id: str):
 def create_patient(patient_id: str, name: str, age: int, condition: str) -> dict:
     """Create a new patient using the Cerner Patient ID as the primary key."""
     conn = get_connection()
-    
-    existing = conn.execute("SELECT id FROM patients WHERE id = ?", (patient_id,)).fetchone()
+
+    existing = conn.execute(
+        "SELECT id FROM patients WHERE id = ?", (patient_id,)
+    ).fetchone()
     if existing:
         raise Exception(f"A patient with ID {patient_id} already exists.")
-        
+
     conn.execute(
         "INSERT INTO patients (id, name, age, condition) VALUES (?, ?, ?, ?)",
         (patient_id, name, age, condition),
     )
     conn.commit()
     return {"id": patient_id, "name": name, "age": age, "condition": condition}
+
 
 def update_patient(patient_id: str, name: str, age: int, condition: str) -> dict:
     """Update an existing patient's details."""
@@ -46,6 +50,7 @@ def update_patient(patient_id: str, name: str, age: int, condition: str) -> dict
     )
     conn.commit()
     return get_patient(patient_id)
+
 
 def delete_patient(patient_id: str):
     """Delete a patient and cascade delete all their related telemetry and thresholds."""
@@ -88,29 +93,30 @@ def store_vitals(data: dict):
     vitals_queue.put(data)
     return None
 
+
 def store_ecg(patient_id: str, ecg_payload: dict, timestamp: float):
     """Store ECG in volatile memory buffer that refreshes per patient."""
     if patient_id not in latest_ecg_cache:
         latest_ecg_cache[patient_id] = []
-    
+
     # Keep last 10 seconds (approx 500 samples at 50Hz)
-    latest_ecg_cache[patient_id].append({
-        "timestamp": timestamp,
-        "data": ecg_payload
-    })
-    
+    latest_ecg_cache[patient_id].append({"timestamp": timestamp, "data": ecg_payload})
+
     # Trim to 500 max to avoid memory leak
     if len(latest_ecg_cache[patient_id]) > 500:
         latest_ecg_cache[patient_id] = latest_ecg_cache[patient_id][-500:]
+
 
 def get_latest_ecg(patient_id: str) -> list[dict]:
     """Retrieve in-memory ECG buffer for a patient."""
     return latest_ecg_cache.get(patient_id, [])
 
+
 def clear_ecg(patient_id: str):
     """Clear ECG buffer when patient changes."""
     if patient_id in latest_ecg_cache:
         del latest_ecg_cache[patient_id]
+
 
 def flush_vitals_to_db():
     """Drain the queue and perform batched database write."""
@@ -123,13 +129,13 @@ def flush_vitals_to_db():
 
     if not items:
         return
-        
+
     # Congestion control: Keep only the latest vital reading for each patient in this batch
     latest_per_patient = {}
     for data in items:
         pid = data["patient_id"]
         latest_per_patient[pid] = data
-        
+
     downsampled_items = list(latest_per_patient.values())
 
     conn = get_connection()
@@ -156,7 +162,9 @@ def flush_vitals_to_db():
                 ),
             )
         conn.commit()
-        print(f"[RPM] Database: successfully flushed {len(downsampled_items)} downsampled vitals to database")
+        print(
+            f"[RPM] Database: successfully flushed {len(downsampled_items)} downsampled vitals to database"
+        )
     except Exception as e:
         print(f"[RPM] Database error flushing vitals: {e}")
         # Put items back to queue
@@ -206,15 +214,17 @@ def get_all_patients() -> list[dict]:
         pid = p["id"]
         if pid in latest_vitals_cache:
             cache = latest_vitals_cache[pid]
-            p.update({
-                "heart_rate": cache["heart_rate"],
-                "spo2": cache["spo2"],
-                "temperature": cache["temperature"],
-                "respiratory_rate": cache["respiratory_rate"],
-                "systolic_bp": cache["systolic_bp"],
-                "diastolic_bp": cache["diastolic_bp"],
-                "recorded_at": cache["recorded_at"],
-            })
+            p.update(
+                {
+                    "heart_rate": cache["heart_rate"],
+                    "spo2": cache["spo2"],
+                    "temperature": cache["temperature"],
+                    "respiratory_rate": cache["respiratory_rate"],
+                    "systolic_bp": cache["systolic_bp"],
+                    "diastolic_bp": cache["diastolic_bp"],
+                    "recorded_at": cache["recorded_at"],
+                }
+            )
     return patients
 
 
@@ -234,7 +244,7 @@ def get_patient(patient_id: str) -> dict | None:
            )
            WHERE p.id = ?""",
         (patient_id,),
-      ).fetchone()
+    ).fetchone()
     if not row:
         return None
     p = dict(row)
@@ -242,29 +252,36 @@ def get_patient(patient_id: str) -> dict | None:
         p["registered_at"] = p["registered_at"].strftime("%Y-%m-%dT%H:%M:%S")
     if isinstance(p.get("recorded_at"), datetime):
         p["recorded_at"] = p["recorded_at"].strftime("%Y-%m-%dT%H:%M:%S")
-    
+
     pid = p["id"]
     if pid in latest_vitals_cache:
         cache = latest_vitals_cache[pid]
-        p.update({
-            "heart_rate": cache["heart_rate"],
-            "spo2": cache["spo2"],
-            "temperature": cache["temperature"],
-            "respiratory_rate": cache["respiratory_rate"],
-            "systolic_bp": cache["systolic_bp"],
-            "diastolic_bp": cache["diastolic_bp"],
-            "recorded_at": cache["recorded_at"],
-        })
+        p.update(
+            {
+                "heart_rate": cache["heart_rate"],
+                "spo2": cache["spo2"],
+                "temperature": cache["temperature"],
+                "respiratory_rate": cache["respiratory_rate"],
+                "systolic_bp": cache["systolic_bp"],
+                "diastolic_bp": cache["diastolic_bp"],
+                "recorded_at": cache["recorded_at"],
+            }
+        )
     return p
 
 
-def get_vitals_history(patient_id: str, minutes: int = 30, end_time: float | None = None) -> list[dict]:
+def get_vitals_history(
+    patient_id: str, minutes: int = 30, end_time: float | None = None
+) -> list[dict]:
     """Return time-series vitals for a patient within a specific window."""
     conn = get_connection()
     if end_time:
         end_dt = datetime.fromtimestamp(end_time / 1000.0).strftime("%Y-%m-%dT%H:%M:%S")
         from datetime import timedelta
-        start_dt = (datetime.fromtimestamp(end_time / 1000.0) - timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%S")
+
+        start_dt = (
+            datetime.fromtimestamp(end_time / 1000.0) - timedelta(minutes=minutes)
+        ).strftime("%Y-%m-%dT%H:%M:%S")
         rows = conn.execute(
             """SELECT heart_rate, spo2, temperature,
                       respiratory_rate, systolic_bp, diastolic_bp,
@@ -278,7 +295,10 @@ def get_vitals_history(patient_id: str, minutes: int = 30, end_time: float | Non
         ).fetchall()
     else:
         from datetime import timedelta
-        cutoff = (datetime.now() - timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%S")
+
+        cutoff = (datetime.now() - timedelta(minutes=minutes)).strftime(
+            "%Y-%m-%dT%H:%M:%S"
+        )
         rows = conn.execute(
             """SELECT heart_rate, spo2, temperature,
                       respiratory_rate, systolic_bp, diastolic_bp,
@@ -289,7 +309,7 @@ def get_vitals_history(patient_id: str, minutes: int = 30, end_time: float | Non
                ORDER BY recorded_at ASC""",
             (patient_id, cutoff),
         ).fetchall()
-        
+
     results = []
     for r in rows:
         d = dict(r)
@@ -299,7 +319,9 @@ def get_vitals_history(patient_id: str, minutes: int = 30, end_time: float | Non
     return results
 
 
-def get_hourly_history_aggregated(patient_id: str, date_str: str, hour: int) -> list[dict]:
+def get_hourly_history_aggregated(
+    patient_id: str, date_str: str, hour: int
+) -> list[dict]:
     """
     Return 1 hour of vitals, aggregated into 1-minute averages (max 60 points).
     date_str: 'YYYY-MM-DD'
@@ -308,7 +330,7 @@ def get_hourly_history_aggregated(patient_id: str, date_str: str, hour: int) -> 
     conn = get_connection()
     start_prefix = f"{date_str}T{hour:02d}:00"
     end_prefix = f"{date_str}T{hour:02d}:59"
-    
+
     # Postgres aggregation queries using to_char and numeric casting
     rows = conn.execute(
         """SELECT 
@@ -341,7 +363,6 @@ def get_latest_vitals_map() -> dict:
             "name": p["name"],
             "age": p["age"],
             "condition": p["condition"],
-
             "heart_rate": p["heart_rate"],
             "spo2": p["spo2"],
             "temperature": p["temperature"],

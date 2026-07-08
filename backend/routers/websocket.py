@@ -10,6 +10,7 @@ router = APIRouter()
 
 connected_clients: set[WebSocket] = set()
 
+
 async def broadcast(data: dict):
     dead = set()
     for ws in connected_clients:
@@ -17,6 +18,7 @@ async def broadcast(data: dict):
             await ws.send_json(data)
         except Exception as e:
             import traceback
+
             print(f"[WS] Error broadcasting to client: {e}")
             traceback.print_exc()
             dead.add(ws)
@@ -40,6 +42,7 @@ async def websocket_endpoint(ws: WebSocket):
         connected_clients.discard(ws)
     except Exception as e:
         import traceback
+
         print(f"[WS] Exception in websocket connection: {e}")
         traceback.print_exc()
         connected_clients.discard(ws)

@@ -2,11 +2,11 @@
 Database connection management for PostgreSQL (Neon DB).
 """
 
-import os
 import threading
+from datetime import datetime, timedelta
+
 import psycopg2
 import psycopg2.extras
-from datetime import datetime, timedelta
 
 from backend.config import DATABASE_URL
 from backend.database.models import SCHEMA_SQL
@@ -40,16 +40,18 @@ class ConnectionWrapper:
     def execute(self, sql, params=None):
         if params is None:
             params = ()
-        
+
         # Translate placeholder ? to %s for PostgreSQL
         sql = sql.replace("?", "%s")
-            
+
         try:
             cur = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
             cur.execute(sql, params)
             return CursorWrapper(cur)
         except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
-            print(f"[RPM] Database connection error in execute: {e}. Resetting connection and retrying...")
+            print(
+                f"[RPM] Database connection error in execute: {e}. Resetting connection and retrying..."
+            )
             if hasattr(_local, "conn"):
                 _local.conn = None
             try:
@@ -71,7 +73,9 @@ class ConnectionWrapper:
             self.conn.commit()
             cur.close()
         except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
-            print(f"[RPM] Database connection error in executescript: {e}. Resetting connection and retrying...")
+            print(
+                f"[RPM] Database connection error in executescript: {e}. Resetting connection and retrying..."
+            )
             if hasattr(_local, "conn"):
                 _local.conn = None
             try:
@@ -90,7 +94,9 @@ class ConnectionWrapper:
         try:
             self.conn.commit()
         except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
-            print(f"[RPM] Database connection error in commit: {e}. Resetting connection.")
+            print(
+                f"[RPM] Database connection error in commit: {e}. Resetting connection."
+            )
             if hasattr(_local, "conn"):
                 _local.conn = None
             raise e
@@ -128,8 +134,10 @@ def get_connection():
 
     if conn_is_closed:
         if not DATABASE_URL:
-            raise ValueError("DATABASE_URL is not set. Please configure NeonDB connection string.")
-            
+            raise ValueError(
+                "DATABASE_URL is not set. Please configure NeonDB connection string."
+            )
+
         conn = psycopg2.connect(DATABASE_URL)
         _local.conn = ConnectionWrapper(conn)
         print("[RPM] Connected to Neon PostgreSQL database")
@@ -146,7 +154,9 @@ def init_db():
             "SELECT column_name FROM information_schema.columns WHERE table_name = 'patients' AND column_name = 'cerner_patient_id'"
         )
         if cur.fetchone():
-            print("[RPM] Migration: Detected legacy 'cerner_patient_id' column. Dropping all tables to recreate with new schema...")
+            print(
+                "[RPM] Migration: Detected legacy 'cerner_patient_id' column. Dropping all tables to recreate with new schema..."
+            )
             conn.executescript("""
                 DROP TABLE IF EXISTS patient_beds CASCADE;
                 DROP TABLE IF EXISTS patient_thresholds CASCADE;
@@ -173,4 +183,3 @@ def close_db():
     if hasattr(_local, "conn") and _local.conn is not None:
         _local.conn.close()
         _local.conn = None
-

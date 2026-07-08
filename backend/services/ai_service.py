@@ -1,8 +1,10 @@
 import os
+
 from groq import Groq
 
 # Use a current, supported Groq model
 GROQ_MODEL = "llama-3.3-70b-versatile"
+
 
 def generate_clinical_insight(patient_data: dict, vitals: list, alerts: list) -> str:
     """
@@ -10,19 +12,19 @@ def generate_clinical_insight(patient_data: dict, vitals: list, alerts: list) ->
     Formats data crisply to minimize token usage while retaining critical context.
     """
     client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
-    
+
     if not client.api_key:
         return "⚠️ **Groq API Key missing.** Please set GROQ_API_KEY in the backend `.env` file to enable AI Insights."
 
     # Efficient Data Summarization
     demographics = f"Age: {patient_data.get('age', 'Unknown')} | Cond: {patient_data.get('condition', 'None')}"
-    
+
     # Summarize vitals if available (latest snapshot is usually enough)
     vitals_summary = "No recent vitals."
     trend_summary = "No long-term trend data available."
     if vitals:
         # 1. Immediate Context: Latest 5 snapshots
-        vitals_desc = sorted(vitals, key=lambda x: x['recorded_at'], reverse=True)
+        vitals_desc = sorted(vitals, key=lambda x: x["recorded_at"], reverse=True)
         recent = vitals_desc[:5]
         vitals_str = [
             f"[{v['recorded_at'][11:19]}] HR:{v['heart_rate']} SpO2:{v['spo2']} Temp:{v['temperature']} RR:{v['respiratory_rate']} BP:{v['systolic_bp']}/{v['diastolic_bp']}"
@@ -31,48 +33,60 @@ def generate_clinical_insight(patient_data: dict, vitals: list, alerts: list) ->
         vitals_summary = "\n".join(vitals_str)
 
         # 2. Long-Term Context: 10-minute trend buckets
-        from datetime import datetime, timedelta
         import statistics
+        from datetime import datetime, timedelta
 
         vitals_asc = list(reversed(vitals_desc))
         buckets = []
         current_bucket = []
         if vitals_asc:
-            bucket_start = datetime.fromisoformat(vitals_asc[0]['recorded_at'])
+            bucket_start = datetime.fromisoformat(vitals_asc[0]["recorded_at"])
             for v in vitals_asc:
-                dt = datetime.fromisoformat(v['recorded_at'])
+                dt = datetime.fromisoformat(v["recorded_at"])
                 if dt >= bucket_start + timedelta(minutes=10):
                     if current_bucket:
-                        end_dt = datetime.fromisoformat(current_bucket[-1]['recorded_at'])
+                        end_dt = datetime.fromisoformat(
+                            current_bucket[-1]["recorded_at"]
+                        )
                         buckets.append((bucket_start, end_dt, current_bucket))
                     bucket_start = dt
                     current_bucket = [v]
                 else:
                     current_bucket.append(v)
             if current_bucket:
-                end_dt = datetime.fromisoformat(current_bucket[-1]['recorded_at'])
+                end_dt = datetime.fromisoformat(current_bucket[-1]["recorded_at"])
                 buckets.append((bucket_start, end_dt, current_bucket))
 
         trend_lines = []
         for start_dt, end_dt, b_vitals in buckets:
+
             def get_stats(key):
                 vals = [v[key] for v in b_vitals if v.get(key) is not None]
-                if not vals: return "N/A"
-                if all(isinstance(x, int) for x in vals) or key in ('heart_rate', 'spo2', 'respiratory_rate', 'systolic_bp', 'diastolic_bp'):
+                if not vals:
+                    return "N/A"
+                if all(isinstance(x, int) for x in vals) or key in (
+                    "heart_rate",
+                    "spo2",
+                    "respiratory_rate",
+                    "systolic_bp",
+                    "diastolic_bp",
+                ):
                     return f"{int(statistics.mean(vals))} ({int(min(vals))}-{int(max(vals))})"
                 return f"{statistics.mean(vals):.1f} ({min(vals):.1f}-{max(vals):.1f})"
-            
-            hr = get_stats('heart_rate')
-            spo2 = get_stats('spo2')
-            rr = get_stats('respiratory_rate')
-            sys = get_stats('systolic_bp')
-            dia = get_stats('diastolic_bp')
-            
+
+            hr = get_stats("heart_rate")
+            spo2 = get_stats("spo2")
+            rr = get_stats("respiratory_rate")
+            sys = get_stats("systolic_bp")
+            dia = get_stats("diastolic_bp")
+
             time_label = f"[{start_dt.strftime('%H:%M')}-{end_dt.strftime('%H:%M')}]"
-            trend_lines.append(f"{time_label} HR: {hr} | SpO2: {spo2} | RR: {rr} | BP: {sys}/{dia}")
-        
+            trend_lines.append(
+                f"{time_label} HR: {hr} | SpO2: {spo2} | RR: {rr} | BP: {sys}/{dia}"
+            )
+
         trend_summary = "\n".join(trend_lines)
-    
+
     alerts_summary = "No recent alerts."
     if alerts:
         # Top 10 most recent alerts
@@ -108,8 +122,11 @@ INSTRUCTIONS:
         completion = client.chat.completions.create(
             model=GROQ_MODEL,
             messages=[
-                {"role": "system", "content": "You are an expert clinical AI assistant. Provide highly structured medical insights in raw markdown format."},
-                {"role": "user", "content": prompt}
+                {
+                    "role": "system",
+                    "content": "You are an expert clinical AI assistant. Provide highly structured medical insights in raw markdown format.",
+                },
+                {"role": "user", "content": prompt},
             ],
             temperature=0.2,
             max_tokens=1024,
