@@ -2,9 +2,10 @@
 REST API endpoints for patient-bed mappings.
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from backend.auth_dependency import require_auth
 from backend.services.bed_service import (assign_patient_to_bed, get_all_beds,
                                           unassign_bed)
 
@@ -23,14 +24,14 @@ def list_beds():
 
 
 @router.post("/{bed_id}/assign")
-def assign_bed(bed_id: str, assignment: BedAssignment):
+def assign_bed(bed_id: str, assignment: BedAssignment, _token: str = Depends(require_auth)):
     """Assign a patient to a bed."""
     assign_patient_to_bed(bed_id, assignment.patient_id)
     return {"status": "success", "bed_id": bed_id, "patient_id": assignment.patient_id}
 
 
 @router.delete("/{bed_id}/unassign")
-def remove_bed_assignment(bed_id: str):
+def remove_bed_assignment(bed_id: str, _token: str = Depends(require_auth)):
     """Unassign any patient from a bed."""
     unassign_bed(bed_id)
     return {"status": "success", "bed_id": bed_id}

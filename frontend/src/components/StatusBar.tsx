@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useUiStore } from '../store/uiStore';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { refreshAccessToken } from '../utils/fhir';
+import { isDemoMode } from '../api';
 
 export default function StatusBar() {
   const { theme, toggleTheme } = useUiStore();
@@ -85,7 +86,11 @@ export default function StatusBar() {
       <div className="statusbar-left">
         <img className="cerner-brand-logo" src="/favicon.svg" alt="Oracle Cerner Logo" />
         <span className="brand-word">RPM MONITOR</span>
-        {connected ? (
+        {isDemoMode() ? (
+          <span className="sb-item conn-bad">
+            CERNER MILLENNIUM <span className="v">DEMO MODE</span>
+          </span>
+        ) : connected ? (
           <span className="sb-item conn-ok">
             <span className="blip"></span> CERNER MILLENNIUM <span className="v">CONNECTED</span>
           </span>

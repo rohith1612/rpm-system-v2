@@ -13,10 +13,12 @@ from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 
-load_dotenv(override=True)  # Force override with .env values
+env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+load_dotenv(dotenv_path=env_path, override=True)  # Force override with .env values
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_swagger_ui_html
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -68,6 +70,7 @@ app = FastAPI(
     title="Remote Patient Monitoring API",
     version="1.0.0",
     lifespan=lifespan,
+    docs_url=None,  # Disable default to use custom CDN below
 )
 
 # ── CORS ──────────────────────────────────────────────
@@ -93,3 +96,13 @@ def root():
         "version": "1.0.0",
         "mqtt_session": MQTT_SESSION_ID,
     }
+
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    return get_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title=app.title + " - Swagger UI",
+        oauth2_redirect_url=app.swagger_ui_oauth2_redirect_url,
+        swagger_js_url="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js",
+        swagger_css_url="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css",
+    )

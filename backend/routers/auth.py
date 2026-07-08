@@ -67,6 +67,10 @@ async def exchange_token(req: TokenExchangeRequest):
             detail=f"Token exchange failed: {resp.text}",
         )
 
+    print("\n" + "=" * 60)
+    print("SUCCESS: The provider is authorized and connected")
+    print("=" * 60 + "\n")
+
     return resp.json()
 
 

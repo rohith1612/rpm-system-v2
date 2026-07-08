@@ -19,6 +19,17 @@ export interface OAuthEndpoints {
 const API_BASE = "http://localhost:8000/api";
 
 /**
+ * Build Authorization headers from the stored SMART on FHIR access token.
+ */
+function getAuthHeaders(): Record<string, string> {
+  const token = sessionStorage.getItem("smart_access_token");
+  if (token) {
+    return { "Authorization": `Bearer ${token}` };
+  }
+  return {};
+}
+
+/**
  * Fetch SMART on FHIR configuration from backend.
  */
 export async function fetchFhirConfig(): Promise<FhirConfig> {
@@ -196,7 +207,9 @@ export async function fetchPatientDemographics(
   patientId: string
 ): Promise<{ name: string; age: number; gender: string }> {
   // Now using backend proxy via system token for unrestricted access
-  const response = await fetch(`${API_BASE}/patients/cerner/${patientId}`);
+  const response = await fetch(`${API_BASE}/patients/cerner/${patientId}`, {
+    headers: { ...getAuthHeaders() },
+  });
   if (!response.ok) {
     throw new Error(`Failed to fetch patient details: ${response.statusText}`);
   }
@@ -344,7 +357,9 @@ export async function searchPatients(
   query: string
 ): Promise<Array<{ id: string; name: string; age: number; condition: string }>> {
   // Now using backend proxy via system token for unrestricted searching
-  const response = await fetch(`${API_BASE}/patients/cerner/search?query=${encodeURIComponent(query)}`);
+  const response = await fetch(`${API_BASE}/patients/cerner/search?query=${encodeURIComponent(query)}`, {
+    headers: { ...getAuthHeaders() },
+  });
   if (!response.ok) {
     throw new Error(`Failed to search patients`);
   }
@@ -392,7 +407,7 @@ export async function sendVitalsToCerner(
     try {
       await fetch(`${API_BASE}/patients/cerner/log-sync`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           patient_id: patientId,
 
@@ -700,7 +715,7 @@ export async function sendVitalsToCerner(
       try {
         await fetch(`${API_BASE}/patients/cerner/log-sync`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
           body: JSON.stringify({
             patient_id: patientId,
   
@@ -748,7 +763,7 @@ export async function sendVitalsToCerner(
         try {
           await fetch(`${API_BASE}/patients/cerner/log-sync`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...getAuthHeaders() },
             body: JSON.stringify({
               patient_id: patientId,
     
@@ -774,7 +789,7 @@ export async function sendVitalsToCerner(
     try {
       await fetch(`${API_BASE}/patients/cerner/log-sync`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           patient_id: patientId,
 
@@ -794,7 +809,7 @@ export async function sendVitalsToCerner(
     try {
       await fetch(`${API_BASE}/patients/cerner/log-sync`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           patient_id: patientId,
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createPatient } from "../api";
+import { createPatient, isDemoMode, searchCernerPatients } from "../api";
 import "./PatientModal.css";
 
 interface Props {
@@ -8,7 +8,8 @@ interface Props {
 }
 
 export default function PatientModal({ onClose, onSaved }: Props) {
-  const [tab, setTab] = useState<'manual' | 'cerner'>('cerner');
+  const isDemo = isDemoMode();
+  const [tab, setTab] = useState<'manual' | 'cerner'>(isDemo ? 'manual' : 'cerner');
   
   // Manual State
   const [cernerIdManual, setCernerIdManual] = useState("");
@@ -51,9 +52,7 @@ export default function PatientModal({ onClose, onSaved }: Props) {
     setCernerResults([]);
     setError(null);
     try {
-      const res = await fetch(`http://localhost:8000/api/patients/cerner/search?query=${encodeURIComponent(searchQuery)}`);
-      if (!res.ok) throw new Error("Search failed");
-      const data = await res.json();
+      const data = await searchCernerPatients(searchQuery);
       setCernerResults(data);
     } catch (e: any) {
       setError(e.message || "Failed to search.");
@@ -103,11 +102,12 @@ export default function PatientModal({ onClose, onSaved }: Props) {
         </div>
 
         <div className="modal-tabs">
-          <button className={`modal-tab ${tab === 'cerner' ? 'active' : ''}`} onClick={() => setTab('cerner')}>
+          <button className={`modal-tab ${tab === 'cerner' ? 'active' : ''}`} onClick={() => !isDemo && setTab('cerner')} disabled={isDemo} title={isDemo ? 'Requires active Cerner EHR session' : ''}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9m-9 9a9 9 0 0 1 9-9"/>
             </svg>
             Cerner Import
+            {isDemo && <span style={{ fontSize: '9px', opacity: 0.6, marginLeft: '4px' }}>(Offline)</span>}
           </button>
           <button className={`modal-tab ${tab === 'manual' ? 'active' : ''}`} onClick={() => setTab('manual')}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

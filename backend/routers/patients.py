@@ -4,9 +4,10 @@ REST API endpoints for patient data.
 
 from typing import List, Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from backend.auth_dependency import require_auth, require_cerner_auth
 from backend.config import ALERT_THRESHOLDS
 from backend.services.alert_service import (get_custom_thresholds,
                                             set_custom_thresholds)
@@ -38,7 +39,7 @@ def list_patients():
 
 
 @router.get("/cerner/search")
-async def search_cerner_patients(query: str):
+async def search_cerner_patients(query: str, _token: str = Depends(require_cerner_auth)):
     """Search for patients in the Cerner EHR Sandbox using the System Token."""
     import asyncio
 
@@ -138,7 +139,7 @@ async def search_cerner_patients(query: str):
 
 
 @router.get("/cerner/{cerner_patient_id}")
-async def get_cerner_patient(cerner_patient_id: str):
+async def get_cerner_patient(cerner_patient_id: str, _token: str = Depends(require_cerner_auth)):
     """Get demographics and encounter status for a specific Cerner patient via System Token."""
     import httpx
 
@@ -300,7 +301,7 @@ def get_patient_ecg(patient_id: str):
 
 
 @router.post("")
-async def create_new_patient(patient: PatientCreateUpdate):
+async def create_new_patient(patient: PatientCreateUpdate, _token: str = Depends(require_auth)):
     """Create a new patient."""
     from fastapi import HTTPException
 
@@ -319,7 +320,7 @@ async def create_new_patient(patient: PatientCreateUpdate):
 
 
 @router.put("/{patient_id}")
-async def update_existing_patient(patient_id: str, patient: PatientCreateUpdate):
+async def update_existing_patient(patient_id: str, patient: PatientCreateUpdate, _token: str = Depends(require_auth)):
     """Update an existing patient."""
     from backend.routers.websocket import broadcast
     from backend.services.vitals_service import (get_latest_vitals_map,
@@ -331,7 +332,7 @@ async def update_existing_patient(patient_id: str, patient: PatientCreateUpdate)
 
 
 @router.get("/{patient_id}/insights")
-def get_patient_insights(patient_id: str):
+def get_patient_insights(patient_id: str, _token: str = Depends(require_auth)):
     """Generate an AI insight based on recent vitals and alerts."""
     from backend.services.ai_service import generate_clinical_insight
     from backend.services.alert_service import get_patient_alerts
@@ -368,7 +369,7 @@ def get_patient_insights(patient_id: str):
 
 
 @router.delete("/{patient_id}")
-async def delete_existing_patient(patient_id: str):
+async def delete_existing_patient(patient_id: str, _token: str = Depends(require_auth)):
     """Delete a patient and all their related data."""
     from backend.routers.websocket import broadcast
     from backend.services.vitals_service import (delete_patient,
@@ -400,7 +401,7 @@ def get_thresholds(patient_id: str):
 
 
 @router.put("/{patient_id}/thresholds")
-def update_thresholds(patient_id: str, thresholds: List[ThresholdUpdate]):
+def update_thresholds(patient_id: str, thresholds: List[ThresholdUpdate], _token: str = Depends(require_auth)):
     """Save custom thresholds for a patient."""
     set_custom_thresholds(patient_id, [t.dict() for t in thresholds])
     return {"status": "success"}
@@ -417,7 +418,7 @@ class CernerLogPayload(BaseModel):
 
 
 @router.post("/cerner/log-sync")
-def log_cerner_sync(payload: CernerLogPayload):
+def log_cerner_sync(payload: CernerLogPayload, _token: str = Depends(require_cerner_auth)):
     """Log Cerner FHIR synchronization status and response details to the backend console."""
     print("\n" + "=" * 80)
     print(f"[CERNER SYNC LOG] Patient ID: {payload.patient_id}")
@@ -439,7 +440,7 @@ def log_cerner_sync(payload: CernerLogPayload):
 
 
 @router.get("/cerner/queue-size")
-def get_cerner_queue_size():
+def get_cerner_queue_size(_token: str = Depends(require_cerner_auth)):
     """Get the current number of pending items in the leaky bucket queue."""
     from backend.services.cerner_queue import get_queue_size
 
@@ -456,7 +457,7 @@ class CernerSyncRequest(BaseModel):
 
 
 @router.post("/{patient_id}/cerner/sync")
-async def sync_vitals_to_cerner(patient_id: str, payload: CernerSyncRequest):
+async def sync_vitals_to_cerner(patient_id: str, payload: CernerSyncRequest, _token: str = Depends(require_cerner_auth)):
     """
     Sync vitals of a patient to Cerner EHR using the leaky bucket background queue.
     Enqueues the items and returns HTTP 202 immediately.
