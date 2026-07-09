@@ -1,0 +1,58 @@
+# Grafana Data Sources Provisioning
+apiVersion: 1
+
+datasources:
+  # 1. Prometheus Data Source (Default)
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    uid: prometheus-datasource-uid
+    isDefault: true
+    editable: true
+    jsonData:
+      httpMethod: POST
+
+  # 2. Loki Data Source
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    uid: loki-datasource-uid
+    editable: true
+    jsonData:
+      # Enable derived fields to link logs back to traces if trace_id is present
+      derivedFields:
+        - datasourceUid: tempo-datasource-uid
+          matcherRegex: '(?:trace_id|traceId)="?([a-f0-9]+)"?'
+          name: TraceID
+          url: '$${__value.raw}'
+
+  # 3. Tempo Data Source
+  - name: Tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    uid: tempo-datasource-uid
+    editable: true
+    jsonData:
+      # Enable node graph visualization in the tracing view
+      nodeGraph:
+        enabled: true
+      # Enable service map integration pointing to Prometheus datasource
+      serviceMap:
+        datasourceUid: prometheus-datasource-uid
+      # Configure trace-to-logs integration linking to Loki
+      tracesToLogsV2:
+        datasourceUid: loki-datasource-uid
+        spanStartTimeShift: '-1h'
+        spanEndTimeShift: '1h'
+        filterByTraceID: true
+        filterBySpanID: false
+        tags:
+          - key: service.name
+            value: service_name
+          - key: deployment.environment
+            value: deployment_environment
+      search:
+        hide: false

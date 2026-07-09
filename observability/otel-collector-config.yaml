@@ -1,0 +1,89 @@
+# OpenTelemetry Collector Configuration
+# Production-quality configuration designed for internal Docker networks.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # The memory_limiter processor is used to prevent out of memory situations.
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 75
+    spike_limit_percentage: 15
+
+  # The batch processor groups telemetry data into batches for more efficient transmission.
+  batch:
+    send_batch_size: 8192
+    timeout: 1s
+    send_batch_max_size: 10240
+
+  # Map OpenTelemetry resource attributes into Loki labels using hints.
+  # Dots in attribute names (e.g., service.name) will be sanitized to underscores (e.g., service_name) by the Loki exporter.
+  resource/loki:
+    attributes:
+      - action: insert
+        key: loki.resource.labels
+        value: "service.name, service.namespace, deployment.environment, host.name"
+
+  # Ensure severity_text is copied to log attributes so it can be promoted to a Loki label.
+  transform:
+    error_mode: ignore
+    log_statements:
+      - context: log
+        statements:
+          - set(attributes["severity_text"], severity_text)
+
+  # Promote severity_text log attribute to a Loki label.
+  attributes/loki:
+    actions:
+      - action: insert
+        key: loki.attribute.labels
+        value: "severity_text"
+
+exporters:
+  # Exports logs to Loki.
+  loki:
+    endpoint: "http://loki:3100/loki/api/v1/push"
+
+  # Exports metrics as a Prometheus scrape endpoint.
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: "otel"
+
+  # Exports traces to Tempo via OTLP gRPC.
+  otlp/tempo:
+    endpoint: "tempo:4317"
+    tls:
+      insecure: true
+
+extensions:
+  # Extension to expose collector health status.
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  pipelines:
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, transform, resource/loki, attributes/loki, batch]
+      exporters: [loki]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus]
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/tempo]
+
+  telemetry:
+    metrics:
+      address: "0.0.0.0:8888"
+      level: normal
+
