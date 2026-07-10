@@ -28,16 +28,19 @@ from backend.mqtt.listener import (set_broadcast_fn, set_event_loop,
                                    start_mqtt_listener)
 from backend.routers import auth, beds, patients, vitals
 from backend.routers import websocket as ws_router
+from backend.telemetry.setup import setup_telemetry
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import logging
+    logger = logging.getLogger("main")
     # ── Startup ───────────────────────────────────────
-    print(f"[RPM] Starting backend (MQTT session: {MQTT_SESSION_ID})")
+    logger.info(f"Starting backend (MQTT session: {MQTT_SESSION_ID})")
 
     # Initialize database tables
     init_db()
-    print("[RPM] Database initialized")
+    logger.info("Database initialized")
 
     # Wire up MQTT → WebSocket bridge
     loop = asyncio.get_running_loop()
@@ -63,7 +66,7 @@ async def lifespan(app: FastAPI):
     # ── Shutdown ──────────────────────────────────────
     mqtt_client.loop_stop()
     mqtt_client.disconnect()
-    print("[RPM] Backend shutdown complete")
+    logger.info("Backend shutdown complete")
 
 
 app = FastAPI(
@@ -72,6 +75,9 @@ app = FastAPI(
     lifespan=lifespan,
     docs_url=None,  # Disable default to use custom CDN below
 )
+
+# Initialize OpenTelemetry
+setup_telemetry(app)
 
 # ── CORS ──────────────────────────────────────────────
 app.add_middleware(
