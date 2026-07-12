@@ -1,3 +1,4 @@
+import os
 import json
 import logging
 from typing import Sequence
@@ -7,8 +8,8 @@ from .redaction import redact_dict
 
 class JsonFileSpanExporter(SpanExporter):
     """Exports spans to a local JSON file after redacting PII."""
-    def __init__(self, filepath="d:/rpm-system-v2/traces.json"):
-        self.filepath = filepath
+    def __init__(self, filepath="traces.json"):
+        self.filepath = os.path.abspath(filepath)
 
     def export(self, spans: Sequence) -> SpanExportResult:
         try:
@@ -38,8 +39,8 @@ class JsonFileSpanExporter(SpanExporter):
 
 class JsonFileMetricExporter(MetricExporter):
     """Exports metrics to a local JSON file after redacting PII."""
-    def __init__(self, filepath="d:/rpm-system-v2/metrics.json"):
-        self.filepath = filepath
+    def __init__(self, filepath="metrics.json"):
+        self.filepath = os.path.abspath(filepath)
         self._preferred_temporality = {}
         self._preferred_aggregation = {}
 

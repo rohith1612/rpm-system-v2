@@ -1,5 +1,6 @@
 import datetime
 import json
+import logging
 import queue
 import threading
 import time
@@ -9,6 +10,9 @@ import httpx
 
 from backend.config import CERNER_BASE_URL
 from backend.services.system_token import get_system_token
+from backend.telemetry.logger import get_logger, log_event, Timer
+
+logger = get_logger(__name__)
 
 # Leaky bucket queue for Cerner observation writes
 _sync_queue = queue.Queue()
@@ -86,6 +90,18 @@ def enqueue_vitals(patient_id: str, cerner_patient_id: str, vitals: Dict[str, An
                     "retry_count": 0,
                 }
             )
+            log_event(
+                logger, logging.DEBUG,
+                "FHIR observation enqueued",
+                event_category="cerner_write",
+                event_type="fhir_enqueue",
+                outcome="success",
+                vital_type=key,
+                loinc_code=spec["code"],
+                loinc_display=spec["display"],
+                queue_depth=_sync_queue.qsize(),
+                patient_id=patient_id,
+            )
 
     # 2. Enqueue blood pressure panel (LOINC: 85354-9) if either systolic or diastolic is present
     systolic = vitals.get("systolic_bp")
@@ -103,6 +119,18 @@ def enqueue_vitals(patient_id: str, cerner_patient_id: str, vitals: Dict[str, An
                 "timestamp": timestamp,
                 "retry_count": 0,
             }
+        )
+        log_event(
+            logger, logging.DEBUG,
+            "FHIR blood pressure panel enqueued",
+            event_category="cerner_write",
+            event_type="fhir_enqueue",
+            outcome="success",
+            vital_type="blood_pressure",
+            loinc_code="85354-9",
+            loinc_display="Blood pressure panel",
+            queue_depth=_sync_queue.qsize(),
+            patient_id=patient_id,
         )
 
     # Start the worker thread if it is not running
@@ -127,39 +155,47 @@ def _ensure_worker_running():
 
 
 def _queue_status_reporter_loop():
-    print("[CERNER QUEUE] Leaky bucket reporter loop started.")
+    log_event(
+        logger, logging.INFO,
+        "Cerner leaky-bucket reporter loop started",
+        event_category="system",
+        event_type="startup",
+        outcome="success",
+    )
     while True:
         try:
             time.sleep(20.0)
             pending_items = list(_sync_queue.queue)
             size = len(pending_items)
 
-            print("\n" + "=" * 80)
-            print(f"[CERNER QUEUE STORAGE REPORT] Current Queue Size: {size}")
-            if size > 0:
-                print("Pending Items:")
-                for idx, item in enumerate(pending_items[:10]):
-                    pat_id = item["patient_id"]
-                    c_id = item["cerner_patient_id"]
-                    loinc = item["code"]
-                    vtype = item.get("display") or item.get("type")
-                    q_time = item["timestamp"]
-                    retries = item.get("retry_count", 0)
-                    print(
-                        f"  {idx+1}. Patient: {pat_id} (Cerner: {c_id}) | LOINC: {loinc} ({vtype}) | Queued: {q_time} | Retries: {retries}"
-                    )
-                if size > 10:
-                    print(f"  ... and {size - 10} more items.")
-            else:
-                print("Queue is empty.")
-            print("=" * 80 + "\n")
+            log_event(
+                logger, logging.INFO,
+                f"Cerner queue snapshot: {size} item(s) pending",
+                event_category="cerner_write",
+                event_type="queue_reporter_snapshot",
+                outcome="success",
+                queue_depth=size,
+            )
         except Exception as reporter_err:
-            print(f"[CERNER QUEUE] Reporter encountered an error: {reporter_err}")
+            log_event(
+                logger, logging.ERROR,
+                "Cerner queue reporter error",
+                event_category="cerner_write",
+                event_type="queue_reporter_snapshot",
+                outcome="failure",
+                error_detail=str(reporter_err),
+            )
             time.sleep(5.0)
 
 
 def _worker_loop():
-    print("[CERNER QUEUE] Leaky bucket background worker started.")
+    log_event(
+        logger, logging.INFO,
+        "Cerner leaky-bucket background worker started",
+        event_category="system",
+        event_type="startup",
+        outcome="success",
+    )
 
     while True:
         try:
@@ -176,8 +212,13 @@ def _worker_loop():
             time.sleep(_leak_rate_seconds)
 
         except Exception as loop_err:
-            print(
-                f"[CERNER QUEUE] Leaky bucket worker encountered unhandled loop error: {loop_err}"
+            log_event(
+                logger, logging.ERROR,
+                "Cerner leaky-bucket worker unhandled loop error",
+                event_category="cerner_write",
+                event_type="fhir_observation_failure",
+                outcome="failure",
+                error_detail=str(loop_err),
             )
             time.sleep(5.0)
 
@@ -294,18 +335,19 @@ def _process_queue_item_with_retry(item: Dict[str, Any]):
             try:
                 system_token = await_async(get_system_token())
             except Exception:
-                # Mock/Offline fallback: if credentials are not configured, print simulated logs!
-                print("\n" + "=" * 80)
-                print(
-                    f"[MOCK CERNER QUEUE SYNC] Patient ID: {patient_id} (Cerner ID: {cerner_patient_id})"
+                # Mock/Offline fallback: credentials not configured
+                log_event(
+                    logger, logging.WARNING,
+                    "Cerner write using mock fallback — credentials not configured",
+                    event_category="cerner_write",
+                    event_type="fhir_mock_fallback",
+                    outcome="success",
+                    loinc_code=item.get("code", "85354-9"),
+                    loinc_display=item.get("display", "Blood pressure"),
+                    vital_type=item.get("type"),
+                    retry_count=item.get("retry_count", 0),
+                    patient_id=patient_id,
                 )
-                print(
-                    "Status: SUCCESS (HTTP 200) [Mock Fallback - Credentials Not Configured]"
-                )
-                print(f"LOINC Code: {item['code']}")
-                print("FHIR Payload Sent to Cerner (Simulated):")
-                print(json.dumps(payload, indent=2))
-                print("=" * 80 + "\n")
                 success = True
                 break
 
@@ -315,56 +357,106 @@ def _process_queue_item_with_retry(item: Dict[str, Any]):
                 "Accept": "application/fhir+json",
             }
 
-            print(
-                f"[CERNER QUEUE] Leaky Bucket sending LOINC {item['code']} for Patient {patient_id}..."
+            log_event(
+                logger, logging.DEBUG,
+                "Sending FHIR observation to Cerner",
+                event_category="cerner_write",
+                event_type="fhir_observation_start",
+                outcome="pending",
+                loinc_code=item.get("code", "85354-9"),
+                loinc_display=item.get("display"),
+                vital_type=item.get("type"),
+                retry_count=item.get("retry_count", 0),
+                patient_id=patient_id,
             )
 
+            timer = Timer()
             with httpx.Client(verify=False, timeout=30.0) as client:
                 resp = client.post(clean_url, headers=headers, json=payload)
-
-            # Log output to backend terminal console
-            print("\n" + "=" * 80)
-            print(
-                f"[CERNER LEAKY BUCKET WRITE] Patient ID: {patient_id} (Cerner ID: {cerner_patient_id})"
-            )
-            print(
-                f"Status: {'SUCCESS' if resp.status_code < 300 else 'FAILED'} (HTTP {resp.status_code})"
-            )
-            print(f"LOINC Code: {item['code']}")
-            print(f"Retry Count: {item['retry_count']}")
-            print("FHIR Payload Sent to Cerner:")
-            print(json.dumps(payload, indent=2))
-            print("Response/Details from Cerner:")
-            print(resp.text or f"Empty response (HTTP {resp.status_code})")
-            print("=" * 80 + "\n")
+            elapsed = timer.stop()
 
             if resp.status_code < 300:
+                log_event(
+                    logger, logging.INFO,
+                    "FHIR observation written to Cerner successfully",
+                    event_category="cerner_write",
+                    event_type="fhir_observation_success",
+                    outcome="success",
+                    http_status=resp.status_code,
+                    loinc_code=item.get("code", "85354-9"),
+                    loinc_display=item.get("display"),
+                    vital_type=item.get("type"),
+                    retry_count=item.get("retry_count", 0),
+                    duration_ms=elapsed,
+                    patient_id=patient_id,
+                )
                 success = True
             else:
                 item["retry_count"] += 1
                 if item["retry_count"] >= 3:
-                    print(
-                        f"[CERNER QUEUE] Max immediate retries reached (HTTP {resp.status_code}). Re-queueing to back of line."
+                    log_event(
+                        logger, logging.ERROR,
+                        "Cerner FHIR write max retries reached — re-queuing",
+                        event_category="cerner_write",
+                        event_type="fhir_max_retries_requeue",
+                        outcome="failure",
+                        http_status=resp.status_code,
+                        loinc_code=item.get("code", "85354-9"),
+                        vital_type=item.get("type"),
+                        retry_count=item["retry_count"],
+                        queue_depth=_sync_queue.qsize(),
+                        patient_id=patient_id,
                     )
                     item["retry_count"] = 0
                     _sync_queue.put(item)
                     break
-                print(
-                    f"[CERNER QUEUE] Write failed (HTTP {resp.status_code}). Retrying in 5 seconds..."
+
+                log_event(
+                    logger, logging.WARNING,
+                    "FHIR observation write failed — will retry",
+                    event_category="cerner_write",
+                    event_type="fhir_retry",
+                    outcome="failure",
+                    http_status=resp.status_code,
+                    loinc_code=item.get("code", "85354-9"),
+                    vital_type=item.get("type"),
+                    retry_count=item["retry_count"],
+                    duration_ms=elapsed,
+                    patient_id=patient_id,
                 )
                 time.sleep(5.0)
 
         except Exception as sync_err:
             item["retry_count"] += 1
             if item["retry_count"] >= 3:
-                print(
-                    f"[CERNER QUEUE] Max immediate retries reached on exception ({sync_err}). Re-queueing to back of line."
+                log_event(
+                    logger, logging.ERROR,
+                    "Cerner FHIR write exception — max retries reached, re-queuing",
+                    event_category="cerner_write",
+                    event_type="fhir_max_retries_requeue",
+                    outcome="failure",
+                    loinc_code=item.get("code", "85354-9"),
+                    vital_type=item.get("type"),
+                    retry_count=item["retry_count"],
+                    queue_depth=_sync_queue.qsize(),
+                    error_detail=str(sync_err),
+                    patient_id=patient_id,
                 )
                 item["retry_count"] = 0
                 _sync_queue.put(item)
                 break
-            print(
-                f"[CERNER QUEUE] Request exception for Patient {patient_id}: {sync_err}. Retrying in 5 seconds..."
+
+            log_event(
+                logger, logging.WARNING,
+                "Cerner FHIR write exception — will retry",
+                event_category="cerner_write",
+                event_type="fhir_retry",
+                outcome="failure",
+                loinc_code=item.get("code", "85354-9"),
+                vital_type=item.get("type"),
+                retry_count=item["retry_count"],
+                error_detail=str(sync_err),
+                patient_id=patient_id,
             )
             time.sleep(5.0)
 

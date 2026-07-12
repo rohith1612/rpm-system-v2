@@ -1,12 +1,14 @@
-fastapi>=0.115.0
-uvicorn>=0.30.0
-paho-mqtt>=2.1.0
-psycopg2-binary>=2.9.12
-python-dotenv>=1.0.0
-httpx>=0.27.0
-websockets>=12.0
-opentelemetry-api
-opentelemetry-sdk
-opentelemetry-instrumentation-fastapi
-opentelemetry-instrumentation-logging
-opentelemetry-exporter-otlp
+fastapi>=0.115.0 # Modern, fast web framework for building APIs
+uvicorn>=0.30.0 # ASGI server used to run the FastAPI application
+paho-mqtt>=2.1.0 # Client library for connecting to and interacting with MQTT brokers (IoT telemetry)
+psycopg2-binary>=2.9.12 # PostgreSQL database adapter for Python (used for NeonDB)
+python-dotenv>=1.0.0 # Reads key-value pairs from a .env file and sets them as environment variables
+httpx>=0.27.0 # Fully featured HTTP client used for async API calls (e.g., Cerner FHIR/OAuth)
+websockets>=12.0 # Library for building WebSocket servers and clients (real-time telemetry broadcasting)
+psutil>=5.9.0 # Cross-platform library for retrieving system utilization (CPU/Memory metrics)
+opentelemetry-api # Core OpenTelemetry API for defining telemetry (traces, metrics, logs)
+opentelemetry-sdk # The reference implementation of the OpenTelemetry API (collects/processes telemetry)
+opentelemetry-instrumentation-fastapi # Automatically instruments FastAPI to capture HTTP request traces
+opentelemetry-instrumentation-logging # Bridges standard Python logging to OpenTelemetry
+opentelemetry-instrumentation-requests # Automatically instruments outgoing HTTP requests made via the 'requests' or 'httpx' libraries
+opentelemetry-exporter-otlp # Exporter that sends collected telemetry data to an OTLP endpoint (e.g., OTel Collector)

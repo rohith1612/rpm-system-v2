@@ -21,61 +21,111 @@ from .logger import setup_logger
 from .exporters import JsonFileSpanExporter, JsonFileMetricExporter
 
 def setup_telemetry(app: FastAPI):
-    # Initialize our custom JSON file logger with PII redaction
+    # ── 1. Structured JSON logger ──────────────────────────────────────────────
     logger = setup_logger()
-    logger.info("Telemetry setup initiated.")
-    
-    # Configure Resource with service.name
-    service_name = os.getenv("OTEL_SERVICE_NAME", "rpm-backend")
-    resource = Resource.create({"service.name": service_name})
+    logger.info(
+        "Telemetry setup initiated",
+        extra={
+            "extra_attrs": {
+                "event_category": "system",
+                "event_type": "startup",
+                "outcome": "pending",
+            }
+        },
+    )
 
-    # 1. Traces
+    # ── 2. OTel Resource ───────────────────────────────────────────────────────
+    service_name = os.getenv("OTEL_SERVICE_NAME", "rpm-backend")
+    resource = Resource.create({
+        "service.name": service_name,
+        "service.namespace": "rpm",
+        "deployment.environment": os.getenv("DEPLOYMENT_ENV", "development"),
+    })
+
+    # ── 3. Traces ──────────────────────────────────────────────────────────────
     tracer_provider = TracerProvider(resource=resource)
     trace.set_tracer_provider(tracer_provider)
-    
+
     if os.getenv("OTEL_EXPORT_TRACES_TO_OTLP", "false").lower() == "true":
-        trace_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318") + "/v1/traces"
+        trace_endpoint = (
+            os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
+            + "/v1/traces"
+        )
         span_exporter = OTLPSpanExporter(endpoint=trace_endpoint)
         tracer_provider.add_span_processor(BatchSpanProcessor(span_exporter))
-        
+
     if os.getenv("OTEL_EXPORT_TRACES_TO_FILE", "false").lower() == "true":
         file_span_exporter = JsonFileSpanExporter()
         tracer_provider.add_span_processor(BatchSpanProcessor(file_span_exporter))
 
-    # 2. Metrics
+    # ── 4. Metrics ─────────────────────────────────────────────────────────────
     metric_readers = []
+
     if os.getenv("OTEL_EXPORT_METRICS_TO_OTLP", "false").lower() == "true":
-        metric_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318") + "/v1/metrics"
+        metric_endpoint = (
+            os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
+            + "/v1/metrics"
+        )
         metric_exporter = OTLPMetricExporter(endpoint=metric_endpoint)
-        metric_readers.append(PeriodicExportingMetricReader(metric_exporter))
-        
+        # Export every 30 s — matches psutil refresh interval
+        metric_readers.append(
+            PeriodicExportingMetricReader(metric_exporter, export_interval_millis=30_000)
+        )
+
     if os.getenv("OTEL_EXPORT_METRICS_TO_FILE", "false").lower() == "true":
         file_metric_exporter = JsonFileMetricExporter()
         metric_readers.append(PeriodicExportingMetricReader(file_metric_exporter))
-        
+
     if metric_readers:
         meter_provider = MeterProvider(resource=resource, metric_readers=metric_readers)
         metrics.set_meter_provider(meter_provider)
 
-    # 3. Logs (OpenTelemetry Native - optional if using our custom logger)
+        # Start CPU / memory process metrics collector
+        try:
+            from .metrics import ProcessMetricsCollector
+            ProcessMetricsCollector().start()
+        except Exception as metrics_err:
+            logger.warning("Could not start ProcessMetricsCollector: %s", metrics_err)
+
+    # ── 5. Logs (OTLP export) ──────────────────────────────────────────────────
     if os.getenv("OTEL_EXPORT_LOGS_TO_OTLP", "false").lower() == "true":
         logger_provider = LoggerProvider(resource=resource)
         set_logger_provider(logger_provider)
-        log_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318") + "/v1/logs"
+        log_endpoint = (
+            os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
+            + "/v1/logs"
+        )
         log_exporter = OTLPLogExporter(endpoint=log_endpoint)
-        logger_provider.add_log_record_processor(BatchLogRecordProcessor(log_exporter))
-        
+        logger_provider.add_log_record_processor(
+            BatchLogRecordProcessor(log_exporter)
+        )
+
+        # Bridge Python logging → OTel LoggerProvider so all log_event() calls
+        # are forwarded to the OTel Collector automatically.
         handler = LoggingHandler(level=logging.NOTSET, logger_provider=logger_provider)
         logging.getLogger().addHandler(handler)
 
-    # Instrument FastAPI application to intercept auth and other requests
+    # ── 6. Auto-instrumentation ────────────────────────────────────────────────
+    # FastAPI: auto-creates HTTP spans for every request
     FastAPIInstrumentor.instrument_app(app)
-    
-    # Instrument outgoing HTTP calls (via requests module)
+
+    # Outgoing HTTP calls via `requests` library
     RequestsInstrumentor().instrument()
-    
-    # Instrument standard library logging
-    # Note: set_logging_format=False so it doesn't overwrite our custom JSON formatter
+
+    # Bridge stdlib logging → OTel (set_logging_format=False preserves our JSON formatter)
     LoggingInstrumentor().instrument(set_logging_format=False)
-    
-    logger.info("Telemetry setup complete.")
+
+    logger.info(
+        "Telemetry setup complete",
+        extra={
+            "extra_attrs": {
+                "event_category": "system",
+                "event_type": "startup",
+                "outcome": "success",
+                "service_name": service_name,
+                "otlp_traces": os.getenv("OTEL_EXPORT_TRACES_TO_OTLP", "false"),
+                "otlp_metrics": os.getenv("OTEL_EXPORT_METRICS_TO_OTLP", "false"),
+                "otlp_logs": os.getenv("OTEL_EXPORT_LOGS_TO_OTLP", "false"),
+            }
+        },
+    )

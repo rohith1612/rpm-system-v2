@@ -5,6 +5,7 @@ and broadcasts to WebSocket clients.
 
 import asyncio
 import json
+import logging
 import threading
 import time
 
@@ -15,6 +16,9 @@ from backend.config import (MQTT_BROKER, MQTT_CLIENT_ID_ECG,
                             MQTT_SESSION_ID, MQTT_USERNAME)
 from backend.services.alert_service import check_vitals
 from backend.services.vitals_service import store_ecg, store_vitals
+from backend.telemetry.logger import get_logger, log_event
+
+logger = get_logger(__name__)
 
 # Will be set by main.py on startup
 _event_loop = None
@@ -163,10 +167,17 @@ def start_mqtt_listener():
         vitals_client.tls_set()
 
     def on_connect_vitals(client, userdata, flags, reason_code, properties):
-        print(f"[MQTT] Vitals client connected to {MQTT_BROKER} (rc={reason_code})")
+        log_event(
+            logger, logging.INFO,
+            f"MQTT vitals client connected to broker",
+            event_category="system",
+            event_type="startup",
+            outcome="success",
+            mqtt_broker=f"{MQTT_BROKER}:{MQTT_PORT}",
+            mqtt_topic=f"rpm/{MQTT_SESSION_ID}/+/vitals",
+        )
         topic = f"rpm/{MQTT_SESSION_ID}/+/vitals"
         client.subscribe(topic)
-        print(f"[MQTT] Vitals client subscribed to: {topic}")
 
     vitals_client.on_connect = on_connect_vitals
     vitals_client.on_message = _on_message
@@ -184,10 +195,17 @@ def start_mqtt_listener():
         ecg_client.tls_set()
 
     def on_connect_ecg(client, userdata, flags, reason_code, properties):
-        print(f"[MQTT] ECG client connected to {MQTT_BROKER} (rc={reason_code})")
+        log_event(
+            logger, logging.INFO,
+            f"MQTT ECG client connected to broker",
+            event_category="system",
+            event_type="startup",
+            outcome="success",
+            mqtt_broker=f"{MQTT_BROKER}:{MQTT_PORT}",
+            mqtt_topic=f"rpm/{MQTT_SESSION_ID}/+/ecg",
+        )
         topic = f"rpm/{MQTT_SESSION_ID}/+/ecg"
         client.subscribe(topic)
-        print(f"[MQTT] ECG client subscribed to: {topic}")
 
     ecg_client.on_connect = on_connect_ecg
     ecg_client.on_message = _on_message

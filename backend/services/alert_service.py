@@ -2,8 +2,13 @@
 Threshold-based alert generation for vital signs.
 """
 
+import logging
+
 from backend.config import ALERT_THRESHOLDS
 from backend.database.connection import get_connection
+from backend.telemetry.logger import get_logger, log_event
+
+logger = get_logger(__name__)
 
 
 def get_custom_thresholds(patient_id: str) -> dict:
@@ -80,6 +85,17 @@ def check_vitals(data: dict) -> list[dict]:
             }
             alerts.append(alert)
             _store_alert(alert)
+            log_event(
+                logger, logging.WARNING if severity == "warning" else logging.ERROR,
+                f"Vital alert triggered: {message}",
+                event_category="alert",
+                event_type="alert_triggered",
+                outcome="success",
+                vital_type=vital_name,
+                patient_id=patient_id,
+                severity=severity,
+                vital_value=value,
+            )
 
     return alerts
 

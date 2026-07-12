@@ -1,20 +1,32 @@
 import datetime
+import logging
 import threading
 import time
 
 from backend.services.cerner_queue import enqueue_vitals
 from backend.services.vitals_service import get_all_patients
+from backend.telemetry.logger import get_logger, log_event
+
+logger = get_logger(__name__)
 
 
 def sync_worker():
     """Background thread that automatically syncs patient vitals to Cerner every 60 seconds."""
-    print("[RPM] Cerner FHIR Auto-Sync started (running every 60 seconds)")
+    log_event(
+        logger, logging.INFO,
+        "Cerner FHIR auto-sync started (60 s interval)",
+        event_category="system",
+        event_type="startup",
+        outcome="success",
+    )
     while True:
         try:
             # Sync every 60 seconds
             time.sleep(60)
 
             patients = get_all_patients()
+            enqueued = 0
+            skipped = 0
 
             for p in patients:
                 patient_id = p["id"]
@@ -29,11 +41,27 @@ def sync_worker():
                         if (
                             datetime.datetime.now() - recorded_time
                         ).total_seconds() > 300:
+                            log_event(
+                                logger, logging.DEBUG,
+                                "Auto-sync skipped — vitals stale (>5 min)",
+                                event_category="system",
+                                event_type="cerner_autosync_skipped",
+                                outcome="skipped",
+                                patient_id=patient_id,
+                            )
+                            skipped += 1
                             continue
                     except Exception as date_err:
-                        print(
-                            f"[RPM] Date parsing error in Auto-Sync for {patient_id}: {date_err}"
+                        log_event(
+                            logger, logging.WARNING,
+                            "Auto-sync date parse error",
+                            event_category="system",
+                            event_type="cerner_autosync_skipped",
+                            outcome="failure",
+                            patient_id=patient_id,
+                            error_detail=str(date_err),
                         )
+                        skipped += 1
                         continue
 
                     vitals_payload = {
@@ -47,9 +75,35 @@ def sync_worker():
 
                     # Enqueue the FHIR sync (patient_id == cerner_id)
                     enqueue_vitals(patient_id, patient_id, vitals_payload)
+                    enqueued += 1
+
+                    log_event(
+                        logger, logging.DEBUG,
+                        "Auto-sync vitals enqueued for patient",
+                        event_category="system",
+                        event_type="cerner_autosync_enqueued",
+                        outcome="success",
+                        patient_id=patient_id,
+                    )
+
+            log_event(
+                logger, logging.INFO,
+                f"Cerner auto-sync tick complete: {enqueued} enqueued, {skipped} skipped",
+                event_category="system",
+                event_type="cerner_autosync_tick",
+                outcome="success",
+                batch_size=enqueued,
+            )
 
         except Exception as e:
-            print(f"[RPM] Error in Cerner Auto-Sync worker: {e}")
+            log_event(
+                logger, logging.ERROR,
+                "Cerner auto-sync worker error",
+                event_category="system",
+                event_type="cerner_autosync_tick",
+                outcome="failure",
+                error_detail=str(e),
+            )
 
 
 def start_auto_sync():

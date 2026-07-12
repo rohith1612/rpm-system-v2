@@ -2,6 +2,7 @@
 REST API endpoints for patient data.
 """
 
+import logging
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends
@@ -12,6 +13,9 @@ from backend.config import ALERT_THRESHOLDS
 from backend.services.alert_service import (get_custom_thresholds,
                                             set_custom_thresholds)
 from backend.services.vitals_service import get_all_patients, get_patient
+from backend.telemetry.logger import get_logger, log_event
+
+logger = get_logger(__name__)
 
 
 class ThresholdUpdate(BaseModel):
@@ -125,7 +129,14 @@ async def search_cerner_patients(query: str, _token: str = Depends(require_cerne
                     if entry.get("resource", {}).get("status") == "in-progress":
                         return True
         except Exception as e:
-            print(f"Error querying encounters for search patient {patient_id}: {e}")
+            log_event(
+                logger, logging.WARNING,
+                "Error querying encounters during Cerner patient search",
+                event_category="cerner_read",
+                event_type="encounter_fetch",
+                outcome="failure",
+                error_detail=str(e),
+            )
         return False
 
     if results:
@@ -266,7 +277,14 @@ async def get_cerner_patient(cerner_patient_id: str, _token: str = Depends(requi
                     active_encounter_id = enc_id
                     active_encounter_number = enc_num
     except Exception as e:
-        print(f"Error querying encounters for {cerner_patient_id}: {e}")
+        log_event(
+            logger, logging.WARNING,
+            "Error querying encounters for Cerner patient detail",
+            event_category="cerner_read",
+            event_type="encounter_fetch",
+            outcome="failure",
+            error_detail=str(e),
+        )
 
     return {
         "id": res.get("id"),
@@ -419,23 +437,16 @@ class CernerLogPayload(BaseModel):
 
 @router.post("/cerner/log-sync")
 def log_cerner_sync(payload: CernerLogPayload, _token: str = Depends(require_cerner_auth)):
-    """Log Cerner FHIR synchronization status and response details to the backend console."""
-    print("\n" + "=" * 80)
-    print(f"[CERNER SYNC LOG] Patient ID: {payload.patient_id}")
-    print(f"Status: {payload.status.upper()} (HTTP {payload.http_status})")
-    print(f"Method: {payload.method}")
-    print(f"Vitals Sent: {payload.vitals_sent}")
-    print("FHIR Payload Sent to Cerner:")
-    if payload.payload_sent:
-        print(payload.payload_sent)
-    else:
-        print("No payload recorded.")
-    print("Response/Details from Cerner:")
-    if payload.response_body:
-        print(payload.response_body)
-    else:
-        print("No response body returned or mock environment.")
-    print("=" * 80 + "\n")
+    """Log Cerner FHIR synchronization status and response details."""
+    log_event(
+        logger, logging.INFO if payload.status.lower() == "success" else logging.WARNING,
+        f"Cerner FHIR sync log received: {payload.status.upper()}",
+        event_category="cerner_write",
+        event_type="fhir_observation_success" if payload.status.lower() == "success" else "fhir_observation_failure",
+        outcome=payload.status.lower(),
+        http_status=payload.http_status,
+        patient_id=payload.patient_id,
+    )
     return {"status": "logged"}
 
 

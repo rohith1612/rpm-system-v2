@@ -2,12 +2,16 @@
 Business logic for storing and retrieving vital sign data with in-memory caching and batched database flushes.
 """
 
+import logging
 import queue
 import threading
 import time
 from datetime import datetime
 
 from backend.database.connection import get_connection
+from backend.telemetry.logger import get_logger, log_event, Timer
+
+logger = get_logger(__name__)
 
 vitals_queue = queue.Queue()
 latest_vitals_cache = {}
@@ -38,6 +42,14 @@ def create_patient(patient_id: str, name: str, age: int, condition: str) -> dict
         (patient_id, name, age, condition),
     )
     conn.commit()
+    log_event(
+        logger, logging.INFO,
+        "Patient created in NeonDB",
+        event_category="neondb",
+        event_type="patient_create",
+        outcome="success",
+        patient_id=patient_id,
+    )
     return {"id": patient_id, "name": name, "age": age, "condition": condition}
 
 
@@ -49,6 +61,14 @@ def update_patient(patient_id: str, name: str, age: int, condition: str) -> dict
         (name, age, condition, patient_id),
     )
     conn.commit()
+    log_event(
+        logger, logging.INFO,
+        "Patient updated in NeonDB",
+        event_category="neondb",
+        event_type="patient_update",
+        outcome="success",
+        patient_id=patient_id,
+    )
     return get_patient(patient_id)
 
 
@@ -61,6 +81,14 @@ def delete_patient(patient_id: str):
     conn.execute("DELETE FROM patient_beds WHERE patient_id = ?", (patient_id,))
     conn.execute("DELETE FROM patients WHERE id = ?", (patient_id,))
     conn.commit()
+    log_event(
+        logger, logging.INFO,
+        "Patient and all associated data deleted from NeonDB",
+        event_category="neondb",
+        event_type="patient_delete",
+        outcome="success",
+        patient_id=patient_id,
+    )
 
 
 def store_vitals(data: dict):
@@ -139,6 +167,15 @@ def flush_vitals_to_db():
     downsampled_items = list(latest_per_patient.values())
 
     conn = get_connection()
+    log_event(
+        logger, logging.DEBUG,
+        f"NeonDB vitals flush started — {len(downsampled_items)} record(s)",
+        event_category="neondb",
+        event_type="vitals_flush_start",
+        outcome="pending",
+        batch_size=len(downsampled_items),
+    )
+    timer = Timer()
     try:
         for data in downsampled_items:
             recorded_at = datetime.fromtimestamp(
@@ -162,11 +199,26 @@ def flush_vitals_to_db():
                 ),
             )
         conn.commit()
-        print(
-            f"[RPM] Database: successfully flushed {len(downsampled_items)} downsampled vitals to database"
+        log_event(
+            logger, logging.INFO,
+            f"NeonDB vitals flush succeeded — {len(downsampled_items)} downsampled record(s) written",
+            event_category="neondb",
+            event_type="vitals_flush_success",
+            outcome="success",
+            batch_size=len(downsampled_items),
+            duration_ms=timer.stop(),
         )
     except Exception as e:
-        print(f"[RPM] Database error flushing vitals: {e}")
+        log_event(
+            logger, logging.ERROR,
+            "NeonDB vitals flush failed — re-queuing items",
+            event_category="neondb",
+            event_type="vitals_flush_failure",
+            outcome="failure",
+            batch_size=len(downsampled_items),
+            duration_ms=timer.stop(),
+            error_detail=str(e),
+        )
         # Put items back to queue
         for item in downsampled_items:
             vitals_queue.put(item)
@@ -179,7 +231,14 @@ def db_flush_worker():
             time.sleep(10)
             flush_vitals_to_db()
         except Exception as e:
-            print(f"[RPM] Error in db flush worker thread: {e}")
+            log_event(
+                logger, logging.ERROR,
+                "NeonDB flush worker thread error",
+                event_category="neondb",
+                event_type="vitals_flush_failure",
+                outcome="failure",
+                error_detail=str(e),
+            )
 
 
 # Start background thread immediately on module load

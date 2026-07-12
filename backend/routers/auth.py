@@ -5,14 +5,18 @@ Serves FHIR config to the frontend and proxies the OAuth2 token exchange
 to avoid CORS issues with the Cerner token endpoint.
 """
 
+import logging
+
 import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from backend.config import (APP_POV, CERNER_BASE_URL, CERNER_TOKEN_URL,
                             CLIENT_ID, REDIRECT_URI, SMART_SCOPES)
+from backend.telemetry.logger import get_logger, log_event, Timer
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+logger = get_logger(__name__)
 
 
 @router.get("/config")
@@ -42,6 +46,17 @@ async def exchange_token(req: TokenExchangeRequest):
     token endpoint from the backend instead of the browser.
     Public client flow: no client_secret needed.
     """
+    log_event(
+        logger, logging.INFO,
+        "SMART-on-FHIR token exchange initiated",
+        event_category="auth",
+        event_type="token_exchange_start",
+        outcome="pending",
+        token_type="authorization_code",
+        # code presence logged as boolean — never log the raw code
+        code_present=bool(req.code),
+    )
+
     payload = {
         "grant_type": "authorization_code",
         "code": req.code,
@@ -49,6 +64,7 @@ async def exchange_token(req: TokenExchangeRequest):
         "client_id": CLIENT_ID,
     }
 
+    timer = Timer()
     try:
         async with httpx.AsyncClient(timeout=30.0, verify=False) as client:
             resp = await client.post(
@@ -57,20 +73,47 @@ async def exchange_token(req: TokenExchangeRequest):
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
     except httpx.RequestError as e:
+        log_event(
+            logger, logging.ERROR,
+            "SMART-on-FHIR token exchange failed — network error",
+            event_category="auth",
+            event_type="token_exchange_failure",
+            outcome="failure",
+            token_type="authorization_code",
+            duration_ms=timer.stop(),
+            error_detail=str(e),
+        )
         raise HTTPException(
-            status_code=502, detail=f"Failed to reach Cerner token endpoint: {str(e)}"
+            status_code=502,
+            detail=f"Failed to reach Cerner token endpoint: {str(e)}",
         )
 
     if resp.status_code != 200:
+        log_event(
+            logger, logging.WARNING,
+            "SMART-on-FHIR token exchange rejected by Cerner",
+            event_category="auth",
+            event_type="token_exchange_failure",
+            outcome="failure",
+            token_type="authorization_code",
+            http_status=resp.status_code,
+            duration_ms=timer.stop(),
+        )
         raise HTTPException(
             status_code=resp.status_code,
             detail=f"Token exchange failed: {resp.text}",
         )
 
-    print("\n" + "=" * 60)
-    print("SUCCESS: The provider is authorized and connected")
-    print("=" * 60 + "\n")
-
+    log_event(
+        logger, logging.INFO,
+        "SMART-on-FHIR token exchange succeeded — provider authorised",
+        event_category="auth",
+        event_type="token_exchange_success",
+        outcome="success",
+        token_type="authorization_code",
+        http_status=resp.status_code,
+        duration_ms=timer.stop(),
+    )
     return resp.json()
 
 
@@ -86,12 +129,23 @@ async def refresh_token(req: TokenRefreshRequest):
     This avoids CORS issues by performing the POST to the Cerner
     token endpoint from the backend instead of the browser.
     """
+    log_event(
+        logger, logging.INFO,
+        "SMART-on-FHIR token refresh initiated",
+        event_category="auth",
+        event_type="token_refresh_start",
+        outcome="pending",
+        token_type="refresh_token",
+        refresh_token_present=bool(req.refresh_token),
+    )
+
     payload = {
         "grant_type": "refresh_token",
         "refresh_token": req.refresh_token,
         "client_id": CLIENT_ID,
     }
 
+    timer = Timer()
     try:
         async with httpx.AsyncClient(timeout=30.0, verify=False) as client:
             resp = await client.post(
@@ -100,14 +154,45 @@ async def refresh_token(req: TokenRefreshRequest):
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
     except httpx.RequestError as e:
+        log_event(
+            logger, logging.ERROR,
+            "SMART-on-FHIR token refresh failed — network error",
+            event_category="auth",
+            event_type="token_refresh_failure",
+            outcome="failure",
+            token_type="refresh_token",
+            duration_ms=timer.stop(),
+            error_detail=str(e),
+        )
         raise HTTPException(
-            status_code=502, detail=f"Failed to reach Cerner token endpoint: {str(e)}"
+            status_code=502,
+            detail=f"Failed to reach Cerner token endpoint: {str(e)}",
         )
 
     if resp.status_code != 200:
+        log_event(
+            logger, logging.WARNING,
+            "SMART-on-FHIR token refresh rejected by Cerner",
+            event_category="auth",
+            event_type="token_refresh_failure",
+            outcome="failure",
+            token_type="refresh_token",
+            http_status=resp.status_code,
+            duration_ms=timer.stop(),
+        )
         raise HTTPException(
             status_code=resp.status_code,
             detail=f"Token refresh failed: {resp.text}",
         )
 
+    log_event(
+        logger, logging.INFO,
+        "SMART-on-FHIR token refresh succeeded",
+        event_category="auth",
+        event_type="token_refresh_success",
+        outcome="success",
+        token_type="refresh_token",
+        http_status=resp.status_code,
+        duration_ms=timer.stop(),
+    )
     return resp.json()

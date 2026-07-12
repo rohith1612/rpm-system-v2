@@ -2,6 +2,7 @@
 Database connection management for PostgreSQL (Neon DB).
 """
 
+import logging
 import threading
 from datetime import datetime, timedelta
 
@@ -10,6 +11,9 @@ import psycopg2.extras
 
 from backend.config import DATABASE_URL
 from backend.database.models import SCHEMA_SQL
+from backend.telemetry.logger import get_logger, log_event
+
+logger = get_logger(__name__)
 
 _local = threading.local()
 
@@ -49,8 +53,14 @@ class ConnectionWrapper:
             cur.execute(sql, params)
             return CursorWrapper(cur)
         except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
-            print(
-                f"[RPM] Database connection error in execute: {e}. Resetting connection and retrying..."
+            log_event(
+                logger, logging.ERROR,
+                "NeonDB connection error in execute — resetting and retrying",
+                event_category="neondb",
+                event_type="connection_reset",
+                outcome="failure",
+                error_detail=str(e),
+                thread_id=threading.get_ident(),
             )
             if hasattr(_local, "conn"):
                 _local.conn = None
@@ -73,8 +83,14 @@ class ConnectionWrapper:
             self.conn.commit()
             cur.close()
         except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
-            print(
-                f"[RPM] Database connection error in executescript: {e}. Resetting connection and retrying..."
+            log_event(
+                logger, logging.ERROR,
+                "NeonDB connection error in executescript — resetting and retrying",
+                event_category="neondb",
+                event_type="connection_reset",
+                outcome="failure",
+                error_detail=str(e),
+                thread_id=threading.get_ident(),
             )
             if hasattr(_local, "conn"):
                 _local.conn = None
@@ -94,8 +110,14 @@ class ConnectionWrapper:
         try:
             self.conn.commit()
         except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
-            print(
-                f"[RPM] Database connection error in commit: {e}. Resetting connection."
+            log_event(
+                logger, logging.ERROR,
+                "NeonDB connection error during commit — resetting",
+                event_category="neondb",
+                event_type="connection_reset",
+                outcome="failure",
+                error_detail=str(e),
+                thread_id=threading.get_ident(),
             )
             if hasattr(_local, "conn"):
                 _local.conn = None
@@ -140,7 +162,16 @@ def get_connection():
 
         conn = psycopg2.connect(DATABASE_URL)
         _local.conn = ConnectionWrapper(conn)
-        print("[RPM] Connected to Neon PostgreSQL database")
+
+        log_event(
+            logger, logging.INFO,
+            "NeonDB connection opened",
+            event_category="neondb",
+            event_type="connection_open",
+            outcome="success",
+            thread_id=threading.get_ident(),
+        )
+
     return _local.conn
 
 
@@ -154,8 +185,12 @@ def init_db():
             "SELECT column_name FROM information_schema.columns WHERE table_name = 'patients' AND column_name = 'cerner_patient_id'"
         )
         if cur.fetchone():
-            print(
-                "[RPM] Migration: Detected legacy 'cerner_patient_id' column. Dropping all tables to recreate with new schema..."
+            log_event(
+                logger, logging.WARNING,
+                "DB migration: legacy 'cerner_patient_id' column detected — dropping tables for schema recreation",
+                event_category="neondb",
+                event_type="schema_init",
+                outcome="pending",
             )
             conn.executescript("""
                 DROP TABLE IF EXISTS patient_beds CASCADE;
@@ -164,18 +199,46 @@ def init_db():
                 DROP TABLE IF EXISTS vitals CASCADE;
                 DROP TABLE IF EXISTS patients CASCADE;
             """)
-            print("[RPM] Migration: Old tables dropped successfully.")
+            log_event(
+                logger, logging.INFO,
+                "DB migration: old tables dropped successfully",
+                event_category="neondb",
+                event_type="schema_init",
+                outcome="success",
+            )
     except Exception as e:
-        print(f"[RPM] Migration check skipped (table may not exist yet): {e}")
+        log_event(
+            logger, logging.DEBUG,
+            "DB migration check skipped (table may not exist yet)",
+            event_category="neondb",
+            event_type="schema_init",
+            outcome="skipped",
+            error_detail=str(e),
+        )
 
     conn.executescript(SCHEMA_SQL)
+
+    log_event(
+        logger, logging.INFO,
+        "NeonDB schema initialised",
+        event_category="neondb",
+        event_type="schema_init",
+        outcome="success",
+    )
 
     # Clean old data: purge older than 7 days
     cutoff = (datetime.utcnow() - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%S")
     conn.execute("DELETE FROM vitals WHERE recorded_at < %s", (cutoff,))
     conn.execute("DELETE FROM alerts WHERE created_at < %s", (cutoff,))
     conn.commit()
-    print("[RPM] Database initialized (old data purged)")
+
+    log_event(
+        logger, logging.INFO,
+        "NeonDB old telemetry purged (>7 days)",
+        event_category="neondb",
+        event_type="data_purge",
+        outcome="success",
+    )
 
 
 def close_db():
