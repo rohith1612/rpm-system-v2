@@ -167,14 +167,7 @@ def flush_vitals_to_db():
     downsampled_items = list(latest_per_patient.values())
 
     conn = get_connection()
-    log_event(
-        logger, logging.DEBUG,
-        f"NeonDB vitals flush started — {len(downsampled_items)} record(s)",
-        event_category="neondb",
-        event_type="vitals_flush_start",
-        outcome="pending",
-        batch_size=len(downsampled_items),
-    )
+    sql_template = "INSERT INTO vitals (patient_id, heart_rate, spo2, temperature, respiratory_rate, systolic_bp, diastolic_bp, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     timer = Timer()
     try:
         for data in downsampled_items:
@@ -183,10 +176,7 @@ def flush_vitals_to_db():
             ).strftime("%Y-%m-%dT%H:%M:%S")
 
             conn.execute(
-                """INSERT INTO vitals
-                   (patient_id, heart_rate, spo2, temperature,
-                    respiratory_rate, systolic_bp, diastolic_bp, recorded_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                sql_template,
                 (
                     data["patient_id"],
                     data.get("heart_rate"),
@@ -201,12 +191,13 @@ def flush_vitals_to_db():
         conn.commit()
         log_event(
             logger, logging.INFO,
-            f"NeonDB vitals flush succeeded — {len(downsampled_items)} downsampled record(s) written",
+            f"NeonDB vitals batch storage: successfully stored {len(downsampled_items)} records",
             event_category="neondb",
             event_type="vitals_flush_success",
             outcome="success",
             batch_size=len(downsampled_items),
             duration_ms=timer.stop(),
+            sql_query=sql_template,
         )
     except Exception as e:
         log_event(

@@ -41,26 +41,9 @@ def sync_worker():
                         if (
                             datetime.datetime.now() - recorded_time
                         ).total_seconds() > 300:
-                            log_event(
-                                logger, logging.DEBUG,
-                                "Auto-sync skipped — vitals stale (>5 min)",
-                                event_category="system",
-                                event_type="cerner_autosync_skipped",
-                                outcome="skipped",
-                                patient_id=patient_id,
-                            )
                             skipped += 1
                             continue
-                    except Exception as date_err:
-                        log_event(
-                            logger, logging.WARNING,
-                            "Auto-sync date parse error",
-                            event_category="system",
-                            event_type="cerner_autosync_skipped",
-                            outcome="failure",
-                            patient_id=patient_id,
-                            error_detail=str(date_err),
-                        )
+                    except Exception:
                         skipped += 1
                         continue
 
@@ -76,24 +59,6 @@ def sync_worker():
                     # Enqueue the FHIR sync (patient_id == cerner_id)
                     enqueue_vitals(patient_id, patient_id, vitals_payload)
                     enqueued += 1
-
-                    log_event(
-                        logger, logging.DEBUG,
-                        "Auto-sync vitals enqueued for patient",
-                        event_category="system",
-                        event_type="cerner_autosync_enqueued",
-                        outcome="success",
-                        patient_id=patient_id,
-                    )
-
-            log_event(
-                logger, logging.INFO,
-                f"Cerner auto-sync tick complete: {enqueued} enqueued, {skipped} skipped",
-                event_category="system",
-                event_type="cerner_autosync_tick",
-                outcome="success",
-                batch_size=enqueued,
-            )
 
         except Exception as e:
             log_event(

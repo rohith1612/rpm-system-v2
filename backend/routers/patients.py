@@ -73,6 +73,15 @@ async def search_cerner_patients(query: str, _token: str = Depends(require_cerne
         )
 
     if resp.status_code != 200:
+        log_event(
+            logger, logging.ERROR,
+            f"Cerner patient search failed with status {resp.status_code}",
+            event_category="cerner_read",
+            event_type="patient_search",
+            outcome="failure",
+            http_status=resp.status_code,
+            error_detail=resp.text[:500],
+        )
         return {"error": f"Failed to fetch from Cerner: {resp.text}"}, resp.status_code
 
     data = resp.json()
@@ -146,6 +155,15 @@ async def search_cerner_patients(query: str, _token: str = Depends(require_cerne
         for i, p in enumerate(results):
             p["has_active_encounter"] = encounter_results[i]
 
+    log_event(
+        logger, logging.INFO,
+        f"Cerner patient search succeeded: found {len(results)} patient(s)",
+        event_category="cerner_read",
+        event_type="patient_search",
+        outcome="success",
+        http_status=200,
+        batch_size=len(results),
+    )
     return results
 
 
@@ -170,6 +188,16 @@ async def get_cerner_patient(cerner_patient_id: str, _token: str = Depends(requi
         )
 
     if resp.status_code != 200:
+        log_event(
+            logger, logging.ERROR,
+            f"Cerner patient detail fetch failed for ID {cerner_patient_id} with status {resp.status_code}",
+            event_category="cerner_read",
+            event_type="patient_detail",
+            outcome="failure",
+            http_status=resp.status_code,
+            patient_id=cerner_patient_id,
+            error_detail=resp.text[:500],
+        )
         return {
             "error": f"Failed to fetch patient from Cerner: {resp.text}"
         }, resp.status_code
@@ -286,6 +314,15 @@ async def get_cerner_patient(cerner_patient_id: str, _token: str = Depends(requi
             error_detail=str(e),
         )
 
+    log_event(
+        logger, logging.INFO,
+        f"Cerner patient detail fetch succeeded for patient {full_name.strip()}",
+        event_category="cerner_read",
+        event_type="patient_detail",
+        outcome="success",
+        http_status=200,
+        patient_id=cerner_patient_id,
+    )
     return {
         "id": res.get("id"),
         "name": full_name.strip(),

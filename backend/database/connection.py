@@ -60,7 +60,6 @@ class ConnectionWrapper:
                 event_type="connection_reset",
                 outcome="failure",
                 error_detail=str(e),
-                thread_id=threading.get_ident(),
             )
             if hasattr(_local, "conn"):
                 _local.conn = None
@@ -90,7 +89,6 @@ class ConnectionWrapper:
                 event_type="connection_reset",
                 outcome="failure",
                 error_detail=str(e),
-                thread_id=threading.get_ident(),
             )
             if hasattr(_local, "conn"):
                 _local.conn = None
@@ -117,7 +115,6 @@ class ConnectionWrapper:
                 event_type="connection_reset",
                 outcome="failure",
                 error_detail=str(e),
-                thread_id=threading.get_ident(),
             )
             if hasattr(_local, "conn"):
                 _local.conn = None
@@ -169,7 +166,6 @@ def get_connection():
             event_category="neondb",
             event_type="connection_open",
             outcome="success",
-            thread_id=threading.get_ident(),
         )
 
     return _local.conn

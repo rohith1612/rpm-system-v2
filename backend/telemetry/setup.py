@@ -106,8 +106,8 @@ def setup_telemetry(app: FastAPI):
         logging.getLogger().addHandler(handler)
 
     # ── 6. Auto-instrumentation ────────────────────────────────────────────────
-    # FastAPI: auto-creates HTTP spans for every request
-    FastAPIInstrumentor.instrument_app(app)
+    # FastAPI: auto-creates HTTP spans for every request (exclude WebSocket endpoints to prevent trace file bloat)
+    FastAPIInstrumentor.instrument_app(app, excluded_urls="ws,.*ws.*")
 
     # Outgoing HTTP calls via `requests` library
     RequestsInstrumentor().instrument()

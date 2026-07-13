@@ -17,7 +17,6 @@ logger = get_logger(__name__)
 # Leaky bucket queue for Cerner observation writes
 _sync_queue = queue.Queue()
 _worker_thread = None
-_reporter_thread = None
 _leak_rate_seconds = 2.0  # Leak rate limit between writes
 
 
@@ -90,18 +89,6 @@ def enqueue_vitals(patient_id: str, cerner_patient_id: str, vitals: Dict[str, An
                     "retry_count": 0,
                 }
             )
-            log_event(
-                logger, logging.DEBUG,
-                "FHIR observation enqueued",
-                event_category="cerner_write",
-                event_type="fhir_enqueue",
-                outcome="success",
-                vital_type=key,
-                loinc_code=spec["code"],
-                loinc_display=spec["display"],
-                queue_depth=_sync_queue.qsize(),
-                patient_id=patient_id,
-            )
 
     # 2. Enqueue blood pressure panel (LOINC: 85354-9) if either systolic or diastolic is present
     systolic = vitals.get("systolic_bp")
@@ -120,18 +107,6 @@ def enqueue_vitals(patient_id: str, cerner_patient_id: str, vitals: Dict[str, An
                 "retry_count": 0,
             }
         )
-        log_event(
-            logger, logging.DEBUG,
-            "FHIR blood pressure panel enqueued",
-            event_category="cerner_write",
-            event_type="fhir_enqueue",
-            outcome="success",
-            vital_type="blood_pressure",
-            loinc_code="85354-9",
-            loinc_display="Blood pressure panel",
-            queue_depth=_sync_queue.qsize(),
-            patient_id=patient_id,
-        )
 
     # Start the worker thread if it is not running
     _ensure_worker_running()
@@ -143,49 +118,10 @@ def get_queue_size() -> int:
 
 
 def _ensure_worker_running():
-    global _worker_thread, _reporter_thread
+    global _worker_thread
     if _worker_thread is None or not _worker_thread.is_alive():
         _worker_thread = threading.Thread(target=_worker_loop, daemon=True)
         _worker_thread.start()
-    if _reporter_thread is None or not _reporter_thread.is_alive():
-        _reporter_thread = threading.Thread(
-            target=_queue_status_reporter_loop, daemon=True
-        )
-        _reporter_thread.start()
-
-
-def _queue_status_reporter_loop():
-    log_event(
-        logger, logging.INFO,
-        "Cerner leaky-bucket reporter loop started",
-        event_category="system",
-        event_type="startup",
-        outcome="success",
-    )
-    while True:
-        try:
-            time.sleep(20.0)
-            pending_items = list(_sync_queue.queue)
-            size = len(pending_items)
-
-            log_event(
-                logger, logging.INFO,
-                f"Cerner queue snapshot: {size} item(s) pending",
-                event_category="cerner_write",
-                event_type="queue_reporter_snapshot",
-                outcome="success",
-                queue_depth=size,
-            )
-        except Exception as reporter_err:
-            log_event(
-                logger, logging.ERROR,
-                "Cerner queue reporter error",
-                event_category="cerner_write",
-                event_type="queue_reporter_snapshot",
-                outcome="failure",
-                error_detail=str(reporter_err),
-            )
-            time.sleep(5.0)
 
 
 def _worker_loop():
@@ -358,8 +294,8 @@ def _process_queue_item_with_retry(item: Dict[str, Any]):
             }
 
             log_event(
-                logger, logging.DEBUG,
-                "Sending FHIR observation to Cerner",
+                logger, logging.INFO,
+                f"Sending FHIR {item.get('type', 'observation')} observation to Cerner",
                 event_category="cerner_write",
                 event_type="fhir_observation_start",
                 outcome="pending",
@@ -378,7 +314,7 @@ def _process_queue_item_with_retry(item: Dict[str, Any]):
             if resp.status_code < 300:
                 log_event(
                     logger, logging.INFO,
-                    "FHIR observation written to Cerner successfully",
+                    f"FHIR {item.get('type', 'observation')} observation written to Cerner successfully",
                     event_category="cerner_write",
                     event_type="fhir_observation_success",
                     outcome="success",

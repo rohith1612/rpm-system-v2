@@ -97,7 +97,7 @@ class RedactedJsonFormatter(logging.Formatter):
                 "http_status", "queue_depth", "retry_count", "loinc_code",
                 "vital_type", "batch_size", "token_type", "thread_id",
                 "error_detail", "mqtt_broker", "mqtt_topic", "patient_id_hash",
-                "loinc_display",
+                "loinc_display", "sql_query",
             }
             attrs = record.extra_attrs
             merged: dict[str, Any] = {}
@@ -244,6 +244,18 @@ def log_event(
     # Merge any additional safe kwargs
     for k, v in extra.items():
         attrs[k] = v
+
+    # Auto-correlate errors to OpenTelemetry active spans
+    if level >= logging.ERROR or outcome == "failure":
+        try:
+            from opentelemetry import trace
+            span = trace.get_current_span()
+            if span and span.get_span_context().is_valid:
+                span.set_status(trace.StatusCode.ERROR, message)
+                if error_detail:
+                    span.record_exception(Exception(error_detail))
+        except Exception:
+            pass
 
     # Attach as extra_attrs so the formatter can pick them up
     logger.log(level, message, extra={"extra_attrs": attrs})

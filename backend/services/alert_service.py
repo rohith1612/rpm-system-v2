@@ -85,17 +85,8 @@ def check_vitals(data: dict) -> list[dict]:
             }
             alerts.append(alert)
             _store_alert(alert)
-            log_event(
-                logger, logging.WARNING if severity == "warning" else logging.ERROR,
-                f"Vital alert triggered: {message}",
-                event_category="alert",
-                event_type="alert_triggered",
-                outcome="success",
-                vital_type=vital_name,
-                patient_id=patient_id,
-                severity=severity,
-                vital_value=value,
-            )
+            # Alert stored in DB but not logged in system telemetry to avoid log bloat
+            pass
 
     return alerts
 
