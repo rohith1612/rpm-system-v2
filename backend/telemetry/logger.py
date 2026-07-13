@@ -124,6 +124,9 @@ def setup_logger(log_file: str = "logs.json") -> logging.Logger:
     Configure the root logger with the JSON formatter.
     Idempotent — safe to call multiple times.
     """
+    if not os.path.isabs(log_file):
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        log_file = os.path.join(project_root, log_file)
     log_file = os.path.abspath(log_file)
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)

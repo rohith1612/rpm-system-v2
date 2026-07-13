@@ -9,6 +9,9 @@ from .redaction import redact_dict
 class JsonFileSpanExporter(SpanExporter):
     """Exports spans to a local JSON file after redacting PII."""
     def __init__(self, filepath="traces.json"):
+        if not os.path.isabs(filepath):
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            filepath = os.path.join(project_root, filepath)
         self.filepath = os.path.abspath(filepath)
 
     def export(self, spans: Sequence) -> SpanExportResult:
@@ -40,6 +43,9 @@ class JsonFileSpanExporter(SpanExporter):
 class JsonFileMetricExporter(MetricExporter):
     """Exports metrics to a local JSON file after redacting PII."""
     def __init__(self, filepath="metrics.json"):
+        if not os.path.isabs(filepath):
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            filepath = os.path.join(project_root, filepath)
         self.filepath = os.path.abspath(filepath)
         self._preferred_temporality = {}
         self._preferred_aggregation = {}
