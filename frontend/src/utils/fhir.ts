@@ -16,7 +16,7 @@ export interface OAuthEndpoints {
   token_endpoint: string;
 }
 
-const API_BASE = "http://localhost:8000/api";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000/api";
 
 /**
  * Build Authorization headers from the stored SMART on FHIR access token.

@@ -2,7 +2,7 @@
  * REST API client for the Remote Patient Monitoring backend.
  */
 
-const API_BASE = "http://localhost:8000/api";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000/api";
 
 const DEMO_TOKEN = "mock_offline_demo_token";
 

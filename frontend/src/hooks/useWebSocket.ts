@@ -9,7 +9,7 @@ import { fetchPatients } from "../api";
 import { addLocalVitalPoint } from "../utils/localHistory";
 import { useAppStore } from "../store/vitalsStore";
 
-const WS_URL = "ws://localhost:8000/ws";
+const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8000/ws";
 const RECONNECT_DELAY = 3000;
 
 export function useWebSocket() {
