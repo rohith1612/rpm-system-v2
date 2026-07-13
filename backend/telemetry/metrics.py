@@ -73,15 +73,17 @@ class ProcessMetricsCollector:
     # ── OTel callbacks (called by the SDK on its reader schedule) ─────────────
 
     def _observe_cpu(self, options):
+        from opentelemetry.metrics import Observation
         with self._lock:
-            yield options.create_observable_gauge(
+            yield Observation(
                 value=self._cpu_percent,
                 attributes={"process.type": "backend"},
             )
 
     def _observe_memory(self, options):
+        from opentelemetry.metrics import Observation
         with self._lock:
-            yield options.create_observable_gauge(
+            yield Observation(
                 value=self._memory_rss_mb,
                 attributes={"process.type": "backend"},
             )
