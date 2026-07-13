@@ -39,6 +39,7 @@ def setup_telemetry(app: FastAPI):
     resource = Resource.create({
         "service.name": service_name,
         "service.namespace": "rpm",
+        "service.instance.id": "rpm-backend-main",  # Static ID prevents duplicate instances in Grafana on hot-reloads
         "deployment.environment": os.getenv("DEPLOYMENT_ENV", "development"),
     })
 
@@ -106,8 +107,17 @@ def setup_telemetry(app: FastAPI):
         logging.getLogger().addHandler(handler)
 
     # ── 6. Auto-instrumentation ────────────────────────────────────────────────
-    # FastAPI: auto-creates HTTP spans for every request (exclude WebSocket endpoints to prevent trace file bloat)
-    FastAPIInstrumentor.instrument_app(app, excluded_urls="ws,.*ws.*")
+    # FastAPI: auto-creates HTTP spans for every request (exclude WebSocket endpoints and non-GET/POST request methods)
+    def server_request_hook(span, scope):
+        method = scope.get("method", "").upper()
+        if method not in ("GET", "POST"):
+            span.is_recording = lambda: False  # Mark span as non-recording so it is dropped
+
+    FastAPIInstrumentor.instrument_app(
+        app,
+        excluded_urls="ws,.*ws.*",
+        server_request_hook=server_request_hook
+    )
 
     # Outgoing HTTP calls via `requests` library
     RequestsInstrumentor().instrument()
