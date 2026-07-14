@@ -40,6 +40,9 @@ Thumbs.db
 logs/
 *.log
 npm-debug.log*
+logs.json
+metrics.json
+traces.json
 
 # ── Agent / BMad ─────────────────────────────────────
 .agent/
