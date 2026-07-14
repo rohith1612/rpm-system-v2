@@ -40,9 +40,10 @@ export function addLocalVitalPoint(
     timestampMs,
   });
 
-  // Limit to 30 minutes of real-time logs
-  const cutoff = Date.now() - 30 * 60 * 1000;
-  clientVitalsHistory[patientId] = list.filter((d) => d.timestampMs >= cutoff);
+  // Limit to 30 minutes of real-time logs (1Hz max = 1800 items)
+  if (list.length > 1800) {
+    clientVitalsHistory[patientId] = list.slice(list.length - 1800);
+  }
 }
 
 export function getLocalVitalPoints(patientId: string, minutes: number = 30): LocalVitalPoint[] {

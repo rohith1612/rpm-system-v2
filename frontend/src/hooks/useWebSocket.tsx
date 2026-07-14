@@ -2,7 +2,7 @@
  * WebSocket hook for real-time vitals streaming.
  * Auto-reconnects on disconnect.
  */
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, createContext, useContext, ReactNode } from "react";
 import type { Patient, ActiveAlert, WebSocketMessage } from "../types";
 import { VITAL_CONFIGS, getVitalStatus, SYS_BP_CONFIG, DIA_BP_CONFIG, isPatientActive } from "../types";
 import { fetchPatients } from "../api";
@@ -12,18 +12,21 @@ import { useAppStore } from "../store/vitalsStore";
 const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8000/ws";
 const RECONNECT_DELAY = 3000;
 
-export function useWebSocket() {
-  const [patients, setPatients] = useState<Record<string, Patient>>({});
+interface WebSocketContextValue {
+  alerts: ActiveAlert[];
+  connected: boolean;
+  lastMessageAt: number;
+}
+
+const WebSocketContext = createContext<WebSocketContextValue | null>(null);
+
+export function WebSocketProvider({ children }: { children: ReactNode }) {
+  const setPatients = useAppStore(state => state.setPatients);
   const [alertsMap, setAlertsMap] = useState<Record<string, ActiveAlert>>({});
   const [connected, setConnected] = useState(false);
   const [lastMessageAt, setLastMessageAt] = useState<number>(0);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<number | null>(null);
-  const patientsRef = useRef<Record<string, Patient>>({});
-
-  useEffect(() => {
-    patientsRef.current = patients;
-  }, [patients]);
 
   // Seed patients list from database on mount to prevent loading state on hot reload/refresh
   useEffect(() => {
@@ -61,7 +64,7 @@ export function useWebSocket() {
         const now = Date.now();
         
         for (const [key, alert] of Object.entries(next)) {
-          const p = patientsRef.current[alert.patient_id];
+          const p = useAppStore.getState().patients[alert.patient_id];
           if (!p) continue;
           
           const lastRecorded = p.recorded_at ? new Date(p.recorded_at).getTime() : 0;
@@ -100,7 +103,7 @@ export function useWebSocket() {
         setLastMessageAt(Date.now());
 
         if (msg.type === "snapshot") {
-          setPatients(msg.data);
+          setPatients(() => msg.data);
         } else if (msg.type === "vitals") {
           // Always use browser local time for live updates to guarantee sync with Date.now() and avoid clock drift
           const recorded_at = new Date().toISOString();
@@ -278,7 +281,7 @@ export function useWebSocket() {
   useEffect(() => {
     const healthCheck = setInterval(() => {
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        const hasActivePatients = Object.values(patientsRef.current).some(p => isPatientActive(p));
+        const hasActivePatients = Object.values(useAppStore.getState().patients).some(p => isPatientActive(p));
         const now = Date.now();
         if (hasActivePatients && lastMessageAt > 0 && (now - lastMessageAt) > 15000) {
           console.warn("[WS] Connection hung (no messages for 15s), forcing reconnect...");
@@ -295,5 +298,17 @@ export function useWebSocket() {
     return b.started_at - a.started_at;
   });
 
-  return { patients, alerts: activeAlerts, connected, lastMessageAt };
+  return (
+    <WebSocketContext.Provider value={{ alerts: activeAlerts, connected, lastMessageAt }}>
+      {children}
+    </WebSocketContext.Provider>
+  );
+}
+
+export function useWebSocket() {
+  const ctx = useContext(WebSocketContext);
+  if (!ctx) {
+    throw new Error("useWebSocket must be used within a WebSocketProvider");
+  }
+  return ctx;
 }

@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useUiStore } from '../store/uiStore';
-import { useWebSocket } from '../hooks/useWebSocket';
+import { useAppStore } from '../store/vitalsStore';
 import { useNavigate } from 'react-router-dom';
 import PatientModal from './PatientModal';
 import { deletePatient } from '../api';
 export default function PatientDrawer() {
-  const { drawerOpen, armedPatientId, setArmedPatient, setDrawerOpen } = useUiStore();
-  const { patients } = useWebSocket();
+  const { drawerOpen, setDrawerOpen, armedPatientId, setArmedPatient } = useUiStore();
+  const patients = useAppStore(state => state.patients);
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
 

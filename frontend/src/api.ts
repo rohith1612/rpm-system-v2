@@ -90,8 +90,10 @@ export async function updateThresholds(patientId: string, thresholds: any[]) {
   return res.json();
 }
 
-export async function fetchPatientAlerts(patientId: string, limit: number = 50) {
-  const res = await fetch(`${API_BASE}/patients/${patientId}/alerts?limit=${limit}`, {
+export async function fetchPatientAlerts(patientId: string, hours?: number, limit: number = 50) {
+  let url = `${API_BASE}/patients/${patientId}/alerts?limit=${limit}`;
+  if (hours !== undefined) url += `&hours=${hours}`;
+  const res = await fetch(url, {
     headers: { ...getAuthHeaders() },
   });
   if (!res.ok) throw new Error("Failed to fetch alerts");
@@ -190,3 +192,70 @@ export async function searchCernerPatients(query: string) {
   return res.json();
 }
 
+// ── History Dashboard APIs ──────────────────────────────
+
+export async function fetchVitalsSummary(patientId: string, hours: number = 24) {
+  const res = await fetch(`${API_BASE}/patients/${patientId}/summary?hours=${hours}`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (!res.ok) throw new Error("Failed to fetch vitals summary");
+  return res.json();
+}
+
+export async function fetchHistoryRange(patientId: string, date: string, startHour: number, endHour: number) {
+  const res = await fetch(`${API_BASE}/patients/${patientId}/history-range?date=${date}&start_hour=${startHour}&end_hour=${endHour}`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (!res.ok) throw new Error("Failed to fetch history range");
+  return res.json();
+}
+
+export async function fetchAlertTimeline(patientId: string, hours: number = 24) {
+  const res = await fetch(`${API_BASE}/patients/${patientId}/alert-timeline?hours=${hours}`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (!res.ok) throw new Error("Failed to fetch alert timeline");
+  return res.json();
+}
+
+export async function fetchAlertStats(patientId: string, hours: number = 24) {
+  const res = await fetch(`${API_BASE}/patients/${patientId}/alert-stats?hours=${hours}`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (!res.ok) throw new Error("Failed to fetch alert stats");
+  return res.json();
+}
+
+// ── Cerner Clinical Data APIs ──────────────────────────
+
+export async function fetchCernerConditions(patientId: string) {
+  const res = await fetch(`${API_BASE}/patients/cerner/${patientId}/conditions`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (!res.ok) throw new Error("Failed to fetch Cerner conditions");
+  return res.json();
+}
+
+export async function fetchCernerMedications(patientId: string) {
+  const res = await fetch(`${API_BASE}/patients/cerner/${patientId}/medications`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (!res.ok) throw new Error("Failed to fetch Cerner medications");
+  return res.json();
+}
+
+export async function fetchCernerAllergies(patientId: string) {
+  const res = await fetch(`${API_BASE}/patients/cerner/${patientId}/allergies`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (!res.ok) throw new Error("Failed to fetch Cerner allergies");
+  return res.json();
+}
+
+export async function fetchCernerLabs(patientId: string) {
+  const res = await fetch(`${API_BASE}/patients/cerner/${patientId}/labs`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (!res.ok) throw new Error("Failed to fetch Cerner labs");
+  return res.json();
+}

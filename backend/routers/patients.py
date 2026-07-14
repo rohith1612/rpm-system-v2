@@ -530,3 +530,114 @@ async def sync_vitals_to_cerner(patient_id: str, payload: CernerSyncRequest, _to
         "pending_size": get_queue_size(),
         "detail": "Vitals successfully queued for system background sync.",
     }
+
+
+@router.get("/cerner/{cerner_patient_id}/conditions")
+async def get_cerner_conditions(cerner_patient_id: str, _token: str = Depends(require_cerner_auth)):
+    """Fetch and parse FHIR Conditions."""
+    import httpx
+    from backend.config import CERNER_BASE_URL
+    from backend.services.system_token import get_system_token
+    token = await get_system_token()
+    url = f"{CERNER_BASE_URL.rstrip('/')}/Condition?patient={cerner_patient_id}"
+    async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
+        resp = await client.get(url, headers={"Authorization": f"Bearer {token}", "Accept": "application/fhir+json"})
+    if resp.status_code != 200:
+        return []
+    
+    results = []
+    for entry in resp.json().get("entry", []):
+        r = entry.get("resource", {})
+        results.append({
+            "id": r.get("id", ""),
+            "name": r.get("code", {}).get("text", "Unknown Condition"),
+            "clinical_status": r.get("clinicalStatus", {}).get("coding", [{}])[0].get("code", "unknown"),
+            "onset": r.get("onsetDateTime", ""),
+            "category": r.get("category", [{}])[0].get("coding", [{}])[0].get("display", "") if r.get("category") else ""
+        })
+    return results
+
+
+@router.get("/cerner/{cerner_patient_id}/medications")
+async def get_cerner_medications(cerner_patient_id: str, _token: str = Depends(require_cerner_auth)):
+    """Fetch and parse FHIR MedicationRequests."""
+    import httpx
+    from backend.config import CERNER_BASE_URL
+    from backend.services.system_token import get_system_token
+    token = await get_system_token()
+    url = f"{CERNER_BASE_URL.rstrip('/')}/MedicationRequest?patient={cerner_patient_id}"
+    async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
+        resp = await client.get(url, headers={"Authorization": f"Bearer {token}", "Accept": "application/fhir+json"})
+    if resp.status_code != 200:
+        return []
+    
+    results = []
+    for entry in resp.json().get("entry", []):
+        r = entry.get("resource", {})
+        results.append({
+            "id": r.get("id", ""),
+            "name": r.get("medicationCodeableConcept", {}).get("text", "Unknown Medication"),
+            "status": r.get("status", "unknown"),
+            "dosage": r.get("dosageInstruction", [{}])[0].get("text", "") if r.get("dosageInstruction") else "",
+            "authored_on": r.get("authoredOn", "")
+        })
+    return results
+
+
+@router.get("/cerner/{cerner_patient_id}/allergies")
+async def get_cerner_allergies(cerner_patient_id: str, _token: str = Depends(require_cerner_auth)):
+    """Fetch and parse FHIR AllergyIntolerances."""
+    import httpx
+    from backend.config import CERNER_BASE_URL
+    from backend.services.system_token import get_system_token
+    token = await get_system_token()
+    url = f"{CERNER_BASE_URL.rstrip('/')}/AllergyIntolerance?patient={cerner_patient_id}"
+    async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
+        resp = await client.get(url, headers={"Authorization": f"Bearer {token}", "Accept": "application/fhir+json"})
+    if resp.status_code != 200:
+        return []
+    
+    results = []
+    for entry in resp.json().get("entry", []):
+        r = entry.get("resource", {})
+        reactions = []
+        for rx in r.get("reaction", []):
+            for m in rx.get("manifestation", []):
+                text = m.get("text")
+                if text:
+                    reactions.append(text)
+        results.append({
+            "id": r.get("id", ""),
+            "name": r.get("code", {}).get("text", "Unknown Allergy"),
+            "criticality": r.get("criticality", "unknown"),
+            "type": r.get("type", ""),
+            "reactions": reactions
+        })
+    return results
+
+
+@router.get("/cerner/{cerner_patient_id}/labs")
+async def get_cerner_labs(cerner_patient_id: str, _token: str = Depends(require_cerner_auth)):
+    """Fetch and parse FHIR DiagnosticReports."""
+    import httpx
+    from backend.config import CERNER_BASE_URL
+    from backend.services.system_token import get_system_token
+    token = await get_system_token()
+    url = f"{CERNER_BASE_URL.rstrip('/')}/DiagnosticReport?patient={cerner_patient_id}"
+    async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
+        resp = await client.get(url, headers={"Authorization": f"Bearer {token}", "Accept": "application/fhir+json"})
+    if resp.status_code != 200:
+        return []
+    
+    results = []
+    for entry in resp.json().get("entry", []):
+        r = entry.get("resource", {})
+        results.append({
+            "id": r.get("id", ""),
+            "name": r.get("code", {}).get("text", "Unknown Lab Report"),
+            "status": r.get("status", "unknown"),
+            "effective_date": r.get("effectiveDateTime", ""),
+            "issued": r.get("issued", ""),
+            "conclusion": r.get("conclusion", "")
+        })
+    return results

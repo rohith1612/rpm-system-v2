@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { Patient } from '../types';
 
 export interface VitalsData {
   heart_rate: number | null;
@@ -37,6 +38,7 @@ interface AppState {
   latestVitals: Record<string, VitalsData | null>;
   latestEcg: Record<string, EcgData | null>;
   alerts: AlertData[];
+  patients: Record<string, Patient>;
   
   setCurrentPatient: (id: string | null) => void;
   setVitalsHistory: (patientId: string, history: VitalsData[]) => void;
@@ -45,6 +47,7 @@ interface AppState {
   addAlert: (alert: AlertData) => void;
   setAlerts: (alerts: AlertData[]) => void;
   clearEcg: (patientId: string) => void;
+  setPatients: (updater: (prev: Record<string, Patient>) => Record<string, Patient> | Record<string, Patient>) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -53,6 +56,7 @@ export const useAppStore = create<AppState>((set) => ({
   latestVitals: {},
   latestEcg: {},
   alerts: [],
+  patients: {},
   
   setCurrentPatient: (id) => set({ currentPatientId: id }),
   
@@ -66,15 +70,13 @@ export const useAppStore = create<AppState>((set) => ({
   
   addVitalReading: (patientId, vital) => set((state) => {
     const prevHistory = state.vitalsHistory[patientId] || [];
-    // Cap by time (not count) so live data covers the chart's full 60-minute filter window
-    // regardless of how frequently readings arrive; a count-based cap let old points age out
-    // and vanish from the merged chart before the page's static historicalData fetch could cover them.
-    const cutoff = Date.now() - 60 * 60 * 1000;
-    let startIndex = 0;
-    while (startIndex < prevHistory.length && new Date(prevHistory[startIndex].recorded_at).getTime() < cutoff) {
-      startIndex++;
+    // Cap at 3600 points (1 hour at 1Hz) to avoid O(N) date parsing on every tick
+    let newHistory = prevHistory;
+    if (newHistory.length >= 3600) {
+      newHistory = newHistory.slice(newHistory.length - 3599);
     }
-    const newHistory = [...prevHistory.slice(startIndex), vital];
+    newHistory = [...newHistory, vital];
+    
     return {
       vitalsHistory: { ...state.vitalsHistory, [patientId]: newHistory },
       latestVitals: { ...state.latestVitals, [patientId]: vital }
@@ -95,5 +97,9 @@ export const useAppStore = create<AppState>((set) => ({
     alerts: [alert, ...state.alerts].slice(0, 50)
   })),
   
-  setAlerts: (alerts) => set({ alerts })
+  setAlerts: (alerts) => set({ alerts }),
+  
+  setPatients: (updater) => set((state) => ({
+    patients: typeof updater === 'function' ? updater(state.patients) : updater
+  }))
 }));

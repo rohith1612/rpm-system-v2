@@ -3,6 +3,7 @@ Business logic for storing and retrieving vital sign data with in-memory caching
 """
 
 import logging
+import collections
 import queue
 import threading
 import time
@@ -29,19 +30,19 @@ def _ensure_patient(conn, patient_id: str):
 
 def create_patient(patient_id: str, name: str, age: int, condition: str) -> dict:
     """Create a new patient using the Cerner Patient ID as the primary key."""
-    conn = get_connection()
+    with get_connection() as conn:
+        existing = conn.execute(
+            "SELECT id FROM patients WHERE id = ?", (patient_id,)
+        ).fetchone()
+        if existing:
+            raise Exception(f"A patient with ID {patient_id} already exists.")
 
-    existing = conn.execute(
-        "SELECT id FROM patients WHERE id = ?", (patient_id,)
-    ).fetchone()
-    if existing:
-        raise Exception(f"A patient with ID {patient_id} already exists.")
-
-    conn.execute(
-        "INSERT INTO patients (id, name, age, condition) VALUES (?, ?, ?, ?)",
-        (patient_id, name, age, condition),
-    )
-    conn.commit()
+        conn.execute(
+            "INSERT INTO patients (id, name, age, condition) VALUES (?, ?, ?, ?)",
+            (patient_id, name, age, condition),
+        )
+        conn.commit()
+    
     log_event(
         logger, logging.INFO,
         "Patient created in NeonDB",
@@ -55,12 +56,13 @@ def create_patient(patient_id: str, name: str, age: int, condition: str) -> dict
 
 def update_patient(patient_id: str, name: str, age: int, condition: str) -> dict:
     """Update an existing patient's details."""
-    conn = get_connection()
-    conn.execute(
-        "UPDATE patients SET name = ?, age = ?, condition = ? WHERE id = ?",
-        (name, age, condition, patient_id),
-    )
-    conn.commit()
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE patients SET name = ?, age = ?, condition = ? WHERE id = ?",
+            (name, age, condition, patient_id),
+        )
+        conn.commit()
+        
     log_event(
         logger, logging.INFO,
         "Patient updated in NeonDB",
@@ -74,13 +76,14 @@ def update_patient(patient_id: str, name: str, age: int, condition: str) -> dict
 
 def delete_patient(patient_id: str):
     """Delete a patient and cascade delete all their related telemetry and thresholds."""
-    conn = get_connection()
-    conn.execute("DELETE FROM vitals WHERE patient_id = ?", (patient_id,))
-    conn.execute("DELETE FROM alerts WHERE patient_id = ?", (patient_id,))
-    conn.execute("DELETE FROM patient_thresholds WHERE patient_id = ?", (patient_id,))
-    conn.execute("DELETE FROM patient_beds WHERE patient_id = ?", (patient_id,))
-    conn.execute("DELETE FROM patients WHERE id = ?", (patient_id,))
-    conn.commit()
+    with get_connection() as conn:
+        conn.execute("DELETE FROM vitals WHERE patient_id = ?", (patient_id,))
+        conn.execute("DELETE FROM alerts WHERE patient_id = ?", (patient_id,))
+        conn.execute("DELETE FROM patient_thresholds WHERE patient_id = ?", (patient_id,))
+        conn.execute("DELETE FROM patient_beds WHERE patient_id = ?", (patient_id,))
+        conn.execute("DELETE FROM patients WHERE id = ?", (patient_id,))
+        conn.commit()
+        
     log_event(
         logger, logging.INFO,
         "Patient and all associated data deleted from NeonDB",
@@ -125,19 +128,15 @@ def store_vitals(data: dict):
 def store_ecg(patient_id: str, ecg_payload: dict, timestamp: float):
     """Store ECG in volatile memory buffer that refreshes per patient."""
     if patient_id not in latest_ecg_cache:
-        latest_ecg_cache[patient_id] = []
+        latest_ecg_cache[patient_id] = collections.deque(maxlen=500)
 
-    # Keep last 10 seconds (approx 500 samples at 50Hz)
+    # Automatically drops old elements when maxlen is exceeded (O(1) with 0 garbage)
     latest_ecg_cache[patient_id].append({"timestamp": timestamp, "data": ecg_payload})
-
-    # Trim to 500 max to avoid memory leak
-    if len(latest_ecg_cache[patient_id]) > 500:
-        latest_ecg_cache[patient_id] = latest_ecg_cache[patient_id][-500:]
 
 
 def get_latest_ecg(patient_id: str) -> list[dict]:
     """Retrieve in-memory ECG buffer for a patient."""
-    return latest_ecg_cache.get(patient_id, [])
+    return list(latest_ecg_cache.get(patient_id, []))
 
 
 def clear_ecg(patient_id: str):
@@ -166,29 +165,31 @@ def flush_vitals_to_db():
 
     downsampled_items = list(latest_per_patient.values())
 
-    conn = get_connection()
     sql_template = "INSERT INTO vitals (patient_id, heart_rate, spo2, temperature, respiratory_rate, systolic_bp, diastolic_bp, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     timer = Timer()
+    
     try:
-        for data in downsampled_items:
-            recorded_at = datetime.fromtimestamp(
-                data.get("timestamp", datetime.now().timestamp())
-            ).strftime("%Y-%m-%dT%H:%M:%S")
+        with get_connection() as conn:
+            for data in downsampled_items:
+                recorded_at = datetime.fromtimestamp(
+                    data.get("timestamp", datetime.now().timestamp())
+                ).strftime("%Y-%m-%dT%H:%M:%S")
 
-            conn.execute(
-                sql_template,
-                (
-                    data["patient_id"],
-                    data.get("heart_rate"),
-                    data.get("spo2"),
-                    data.get("temperature"),
-                    data.get("respiratory_rate"),
-                    data.get("systolic_bp"),
-                    data.get("diastolic_bp"),
-                    recorded_at,
-                ),
-            )
-        conn.commit()
+                conn.execute(
+                    sql_template,
+                    (
+                        data["patient_id"],
+                        data.get("heart_rate"),
+                        data.get("spo2"),
+                        data.get("temperature"),
+                        data.get("respiratory_rate"),
+                        data.get("systolic_bp"),
+                        data.get("diastolic_bp"),
+                        recorded_at,
+                    ),
+                )
+            conn.commit()
+            
         log_event(
             logger, logging.INFO,
             f"NeonDB vitals batch storage: successfully stored {len(downsampled_items)} records",
@@ -239,18 +240,11 @@ worker_thread.start()
 
 def get_all_patients() -> list[dict]:
     """Return all patients with their latest vital snapshot (merged with in-memory cache)."""
-    conn = get_connection()
-    rows = conn.execute("""SELECT p.id, p.name, p.age, p.condition, p.registered_at,
-                  v.heart_rate, v.spo2, v.temperature,
-                  v.respiratory_rate, v.systolic_bp, v.diastolic_bp,
-                  v.recorded_at
-           FROM patients p
-           LEFT JOIN vitals v ON v.id = (
-               SELECT id FROM vitals
-               WHERE patient_id = p.id
-               ORDER BY recorded_at DESC LIMIT 1
-           )
-           ORDER BY p.id""").fetchall()
+    with get_connection() as conn:
+        rows = conn.execute("""SELECT id, name, age, condition, registered_at
+               FROM patients
+               ORDER BY id""").fetchall()
+               
     patients = []
     for r in rows:
         p = dict(r)
@@ -259,6 +253,7 @@ def get_all_patients() -> list[dict]:
         if isinstance(p.get("recorded_at"), datetime):
             p["recorded_at"] = p["recorded_at"].strftime("%Y-%m-%dT%H:%M:%S")
         patients.append(p)
+        
     # Merge with in-memory real-time cache
     for p in patients:
         pid = p["id"]
@@ -275,26 +270,39 @@ def get_all_patients() -> list[dict]:
                     "recorded_at": cache["recorded_at"],
                 }
             )
+        else:
+            p.update(
+                {
+                    "heart_rate": None,
+                    "spo2": None,
+                    "temperature": None,
+                    "respiratory_rate": None,
+                    "systolic_bp": None,
+                    "diastolic_bp": None,
+                    "recorded_at": None,
+                }
+            )
     return patients
 
 
 def get_patient(patient_id: str) -> dict | None:
     """Single patient with latest vitals (merged with in-memory cache)."""
-    conn = get_connection()
-    row = conn.execute(
-        """SELECT p.id, p.name, p.age, p.condition, p.registered_at,
-                  v.heart_rate, v.spo2, v.temperature,
-                  v.respiratory_rate, v.systolic_bp, v.diastolic_bp,
-                  v.recorded_at
-           FROM patients p
-           LEFT JOIN vitals v ON v.id = (
-               SELECT id FROM vitals
-               WHERE patient_id = p.id
-               ORDER BY recorded_at DESC LIMIT 1
-           )
-           WHERE p.id = ?""",
-        (patient_id,),
-    ).fetchone()
+    with get_connection() as conn:
+        row = conn.execute(
+            """SELECT p.id, p.name, p.age, p.condition, p.registered_at,
+                      v.heart_rate, v.spo2, v.temperature,
+                      v.respiratory_rate, v.systolic_bp, v.diastolic_bp,
+                      v.recorded_at
+               FROM patients p
+               LEFT JOIN vitals v ON v.id = (
+                   SELECT id FROM vitals
+                   WHERE patient_id = p.id
+                   ORDER BY recorded_at DESC LIMIT 1
+               )
+               WHERE p.id = ?""",
+            (patient_id,),
+        ).fetchone()
+        
     if not row:
         return None
     p = dict(row)
@@ -324,41 +332,41 @@ def get_vitals_history(
     patient_id: str, minutes: int = 30, end_time: float | None = None
 ) -> list[dict]:
     """Return time-series vitals for a patient within a specific window."""
-    conn = get_connection()
-    if end_time:
-        end_dt = datetime.fromtimestamp(end_time / 1000.0).strftime("%Y-%m-%dT%H:%M:%S")
-        from datetime import timedelta
+    with get_connection() as conn:
+        if end_time:
+            end_dt = datetime.fromtimestamp(end_time / 1000.0).strftime("%Y-%m-%dT%H:%M:%S")
+            from datetime import timedelta
 
-        start_dt = (
-            datetime.fromtimestamp(end_time / 1000.0) - timedelta(minutes=minutes)
-        ).strftime("%Y-%m-%dT%H:%M:%S")
-        rows = conn.execute(
-            """SELECT heart_rate, spo2, temperature,
-                      respiratory_rate, systolic_bp, diastolic_bp,
-                      recorded_at
-               FROM vitals
-               WHERE patient_id = ?
-                 AND recorded_at >= ?
-                 AND recorded_at <= ?
-               ORDER BY recorded_at ASC""",
-            (patient_id, start_dt, end_dt),
-        ).fetchall()
-    else:
-        from datetime import timedelta
+            start_dt = (
+                datetime.fromtimestamp(end_time / 1000.0) - timedelta(minutes=minutes)
+            ).strftime("%Y-%m-%dT%H:%M:%S")
+            rows = conn.execute(
+                """SELECT heart_rate, spo2, temperature,
+                          respiratory_rate, systolic_bp, diastolic_bp,
+                          recorded_at
+                   FROM vitals
+                   WHERE patient_id = ?
+                     AND recorded_at >= ?
+                     AND recorded_at <= ?
+                   ORDER BY recorded_at ASC""",
+                (patient_id, start_dt, end_dt),
+            ).fetchall()
+        else:
+            from datetime import timedelta
 
-        cutoff = (datetime.now() - timedelta(minutes=minutes)).strftime(
-            "%Y-%m-%dT%H:%M:%S"
-        )
-        rows = conn.execute(
-            """SELECT heart_rate, spo2, temperature,
-                      respiratory_rate, systolic_bp, diastolic_bp,
-                      recorded_at
-               FROM vitals
-               WHERE patient_id = ?
-                 AND recorded_at >= ?
-               ORDER BY recorded_at ASC""",
-            (patient_id, cutoff),
-        ).fetchall()
+            cutoff = (datetime.now() - timedelta(minutes=minutes)).strftime(
+                "%Y-%m-%dT%H:%M:%S"
+            )
+            rows = conn.execute(
+                """SELECT heart_rate, spo2, temperature,
+                          respiratory_rate, systolic_bp, diastolic_bp,
+                          recorded_at
+                   FROM vitals
+                   WHERE patient_id = ?
+                     AND recorded_at >= ?
+                   ORDER BY recorded_at ASC""",
+                (patient_id, cutoff),
+            ).fetchall()
 
     results = []
     for r in rows:
@@ -377,29 +385,106 @@ def get_hourly_history_aggregated(
     date_str: 'YYYY-MM-DD'
     hour: 0-23
     """
-    conn = get_connection()
     start_prefix = f"{date_str}T{hour:02d}:00"
     end_prefix = f"{date_str}T{hour:02d}:59"
 
-    # Postgres aggregation queries using to_char and numeric casting
-    rows = conn.execute(
-        """SELECT 
-              to_char(recorded_at, 'YYYY-MM-DD"T"HH24:MI:00') as recorded_at,
-              ROUND(CAST(AVG(heart_rate) AS numeric), 1) as heart_rate,
-              ROUND(CAST(AVG(spo2) AS numeric), 1) as spo2,
-              ROUND(CAST(AVG(temperature) AS numeric), 1) as temperature,
-              ROUND(CAST(AVG(respiratory_rate) AS numeric), 1) as respiratory_rate,
-              ROUND(CAST(AVG(systolic_bp) AS numeric), 1) as systolic_bp,
-              ROUND(CAST(AVG(diastolic_bp) AS numeric), 1) as diastolic_bp
-           FROM vitals
-           WHERE patient_id = ?
-             AND recorded_at >= ?
-             AND recorded_at <= ?
-           GROUP BY to_char(recorded_at, 'YYYY-MM-DD"T"HH24:MI:00')
-           ORDER BY recorded_at ASC""",
-        (patient_id, start_prefix, end_prefix + ":59"),
-    ).fetchall()
-    return [dict(r) for r in rows]
+    with get_connection() as conn:
+        # Postgres aggregation queries using to_char and numeric casting
+        rows = conn.execute(
+            """SELECT 
+                  to_char(recorded_at, 'YYYY-MM-DD"T"HH24:MI:00') as recorded_at,
+                  ROUND(CAST(AVG(heart_rate) AS numeric), 1) as heart_rate,
+                  ROUND(CAST(AVG(spo2) AS numeric), 1) as spo2,
+                  ROUND(CAST(AVG(temperature) AS numeric), 1) as temperature,
+                  ROUND(CAST(AVG(respiratory_rate) AS numeric), 1) as respiratory_rate,
+                  ROUND(CAST(AVG(systolic_bp) AS numeric), 1) as systolic_bp,
+                  ROUND(CAST(AVG(diastolic_bp) AS numeric), 1) as diastolic_bp
+               FROM vitals
+               WHERE patient_id = ?
+                 AND recorded_at >= ?
+                 AND recorded_at <= ?
+               GROUP BY to_char(recorded_at, 'YYYY-MM-DD"T"HH24:MI:00')
+               ORDER BY recorded_at ASC""",
+            (patient_id, start_prefix, end_prefix + ":59"),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_summary_aggregated(
+    patient_id: str, hours: int = 24
+) -> list[dict]:
+    """
+    Return vitals aggregated into hourly buckets for the last N hours.
+    Each bucket has min, max, avg for every vital type.
+    Uses Postgres date_trunc for efficient server-side aggregation.
+    Returns at most `hours` rows.
+    """
+    from datetime import timedelta
+
+    cutoff = (datetime.now() - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%S")
+
+    with get_connection() as conn:
+        rows = conn.execute(
+            """SELECT
+                  to_char(date_trunc('hour', recorded_at), 'YYYY-MM-DD"T"HH24:MI:SS') as bucket,
+                  ROUND(CAST(AVG(heart_rate) AS numeric), 1) as heart_rate_avg,
+                  ROUND(CAST(MIN(heart_rate) AS numeric), 1) as heart_rate_min,
+                  ROUND(CAST(MAX(heart_rate) AS numeric), 1) as heart_rate_max,
+                  ROUND(CAST(AVG(spo2) AS numeric), 1) as spo2_avg,
+                  ROUND(CAST(MIN(spo2) AS numeric), 1) as spo2_min,
+                  ROUND(CAST(MAX(spo2) AS numeric), 1) as spo2_max,
+                  ROUND(CAST(AVG(temperature) AS numeric), 1) as temperature_avg,
+                  ROUND(CAST(MIN(temperature) AS numeric), 1) as temperature_min,
+                  ROUND(CAST(MAX(temperature) AS numeric), 1) as temperature_max,
+                  ROUND(CAST(AVG(respiratory_rate) AS numeric), 1) as respiratory_rate_avg,
+                  ROUND(CAST(MIN(respiratory_rate) AS numeric), 1) as respiratory_rate_min,
+                  ROUND(CAST(MAX(respiratory_rate) AS numeric), 1) as respiratory_rate_max,
+                  ROUND(CAST(AVG(systolic_bp) AS numeric), 1) as systolic_bp_avg,
+                  ROUND(CAST(MIN(systolic_bp) AS numeric), 1) as systolic_bp_min,
+                  ROUND(CAST(MAX(systolic_bp) AS numeric), 1) as systolic_bp_max,
+                  ROUND(CAST(AVG(diastolic_bp) AS numeric), 1) as diastolic_bp_avg,
+                  ROUND(CAST(MIN(diastolic_bp) AS numeric), 1) as diastolic_bp_min,
+                  ROUND(CAST(MAX(diastolic_bp) AS numeric), 1) as diastolic_bp_max,
+                  COUNT(*) as sample_count
+               FROM vitals
+               WHERE patient_id = ?
+                 AND recorded_at >= ?
+               GROUP BY date_trunc('hour', recorded_at)
+               ORDER BY bucket ASC""",
+            (patient_id, cutoff),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_multi_hour_history(
+    patient_id: str, date_str: str, start_hour: int, end_hour: int
+) -> list[dict]:
+    """
+    Return vitals aggregated into 1-minute buckets across a range of hours.
+    Useful for plotting 6h or 12h charts with minute-level resolution.
+    """
+    start_prefix = f"{date_str}T{start_hour:02d}:00:00"
+    end_prefix = f"{date_str}T{end_hour:02d}:59:59"
+
+    with get_connection() as conn:
+        rows = conn.execute(
+            """SELECT
+                  to_char(recorded_at, 'YYYY-MM-DD"T"HH24:MI:00') as recorded_at,
+                  ROUND(CAST(AVG(heart_rate) AS numeric), 1) as heart_rate,
+                  ROUND(CAST(AVG(spo2) AS numeric), 1) as spo2,
+                  ROUND(CAST(AVG(temperature) AS numeric), 1) as temperature,
+                  ROUND(CAST(AVG(respiratory_rate) AS numeric), 1) as respiratory_rate,
+                  ROUND(CAST(AVG(systolic_bp) AS numeric), 1) as systolic_bp,
+                  ROUND(CAST(AVG(diastolic_bp) AS numeric), 1) as diastolic_bp
+               FROM vitals
+               WHERE patient_id = ?
+                 AND recorded_at >= ?
+                 AND recorded_at <= ?
+               GROUP BY to_char(recorded_at, 'YYYY-MM-DD"T"HH24:MI:00')
+               ORDER BY recorded_at ASC""",
+            (patient_id, start_prefix, end_prefix),
+        ).fetchall()
+        return [dict(r) for r in rows]
 
 
 def get_latest_vitals_map() -> dict:

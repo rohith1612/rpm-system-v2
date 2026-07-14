@@ -223,7 +223,7 @@ body {
 .drawer-label {
   font-size: 10px;
   letter-spacing: .14em;
-  color: #ffffff;
+  color: var(--ink-dim);
   font-weight: 700;
   text-transform: uppercase;
   margin-bottom: 12px;
@@ -593,6 +593,36 @@ html[data-theme="light"] .mode-knob {
 .ghost-btn:hover {
   color: var(--ink);
   border-color: var(--ink-dim);
+}
+
+.premium-history-btn {
+  background: linear-gradient(135deg, rgba(72, 230, 160, 0.1), rgba(92, 194, 232, 0.1));
+  border: 1px solid rgba(72, 230, 160, 0.3);
+  color: var(--ink);
+  height: 32px;
+  padding: 0 16px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  letter-spacing: 0.3px;
+  transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
+  box-shadow: 0 2px 8px rgba(72, 230, 160, 0.1);
+}
+
+.premium-history-btn:hover {
+  background: linear-gradient(135deg, rgba(72, 230, 160, 0.2), rgba(92, 194, 232, 0.2));
+  border-color: rgba(72, 230, 160, 0.6);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(72, 230, 160, 0.2);
+}
+
+.premium-history-btn svg {
+  color: var(--green);
 }
 
 .ghost-btn.danger:hover {

@@ -1,11 +1,13 @@
 import { useUiStore } from '../store/uiStore';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { useAppStore } from '../store/vitalsStore';
 import { useNavigate } from 'react-router-dom';
 import { useMemo } from 'react';
 
 export default function AlertsRail() {
   const { alertsRailOpen } = useUiStore();
-  const { alerts, patients } = useWebSocket();
+  const { alerts } = useWebSocket();
+  const patients = useAppStore(state => state.patients);
   const navigate = useNavigate();
 
   const groupedAlerts = useMemo(() => {

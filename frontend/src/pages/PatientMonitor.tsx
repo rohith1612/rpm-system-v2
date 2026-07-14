@@ -7,7 +7,7 @@ import { isPatientActive } from '../types';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import EcgWaveform from '../components/EcgWaveform';
 import '../components/EcgWaveform.css';
-import HistoryModal from '../components/HistoryModal';
+
 import ThresholdsModal from '../components/ThresholdsModal';
 import CopyButton from '../components/CopyButton';
 
@@ -16,14 +16,17 @@ type VitalKey = 'heart_rate' | 'spo2' | 'temperature' | 'respiratory_rate' | 'bl
 export default function PatientMonitor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { patients, alerts } = useWebSocket();
+  const { alerts } = useWebSocket();
+  const patients = useAppStore(state => state.patients);
+
+
   const [activeTab, setActiveTab] = useState<'vitals' | 'ecg' | 'ai'>('vitals');
 
   const [selectedVital, setSelectedVital] = useState<VitalKey>('heart_rate');
   const [isGraphExpanded, setIsGraphExpanded] = useState(false);
   const [isEcgExpanded, setIsEcgExpanded] = useState(false);
 
-  const [showHistory, setShowHistory] = useState(false);
+
   const [showSettings, setShowSettings] = useState(false);
   const [timeFilter, setTimeFilter] = useState<'5' | '15' | '30' | '60' | 'manual'>('5');
   const [manualMinutes, setManualMinutes] = useState<number | ''>('');
@@ -401,7 +404,10 @@ export default function PatientMonitor() {
           </span>
         </div>
         <div className="id-actions">
-          <button className="ghost-btn" onClick={() => setShowHistory(true)}>View History</button>
+          <button className="premium-history-btn" onClick={() => navigate(`/patient/${id}/history`)}>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            History & Analytics
+          </button>
           <button className="ghost-btn icon-only" title="Settings" onClick={() => setShowSettings(true)}>
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" /></svg>
           </button>
@@ -590,13 +596,7 @@ export default function PatientMonitor() {
         </div>
       )}
 
-      {showHistory && (
-        <HistoryModal
-          patient={patient}
-          selectedVital={selectedVital || "heart_rate"}
-          onClose={() => setShowHistory(false)}
-        />
-      )}
+
 
       {showSettings && (
         <ThresholdsModal

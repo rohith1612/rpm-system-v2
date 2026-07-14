@@ -41,6 +41,12 @@ class ConnectionWrapper:
     def __init__(self, conn):
         self.conn = conn
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
     def execute(self, sql, params=None):
         if params is None:
             params = ()
