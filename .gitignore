@@ -48,3 +48,8 @@ _bmad-output/
 
 # ── Deployments ──────────────────────────────────────
 .vercel/
+
+# ── Generated Documentation Assets ───────────────────
+generate_pdf.py
+assets/
+*.pdf
