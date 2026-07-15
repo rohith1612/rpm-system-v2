@@ -5,11 +5,13 @@ REST API endpoints for vital signs history and alerts.
 from fastapi import APIRouter, Depends, Query
 
 from backend.auth_dependency import require_auth
-from backend.services.alert_service import get_patient_alerts, get_alert_timeline, get_alert_stats
+from backend.services.alert_service import (get_alert_stats,
+                                            get_alert_timeline,
+                                            get_patient_alerts)
 from backend.services.vitals_service import (get_hourly_history_aggregated,
-                                             get_vitals_history,
+                                             get_multi_hour_history,
                                              get_summary_aggregated,
-                                             get_multi_hour_history)
+                                             get_vitals_history)
 
 router = APIRouter(prefix="/api/patients", tags=["vitals"])
 
@@ -47,7 +49,9 @@ def patient_alerts(
 @router.get("/{patient_id}/summary")
 def patient_vitals_summary(
     patient_id: str,
-    hours: int = Query(default=24, ge=1, le=168, description="Hours to summarize (max 7 days)"),
+    hours: int = Query(
+        default=24, ge=1, le=168, description="Hours to summarize (max 7 days)"
+    ),
     _token: str = Depends(require_auth),
 ):
     """Return hourly-aggregated vital summaries (min/max/avg per hour)."""
@@ -84,4 +88,3 @@ def patient_alert_stats(
 ):
     """Return alert analytics summary."""
     return get_alert_stats(patient_id, hours)
-

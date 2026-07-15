@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 try:
     import psutil
+
     _PSUTIL_AVAILABLE = True
 except ImportError:
     _PSUTIL_AVAILABLE = False
@@ -74,6 +75,7 @@ class ProcessMetricsCollector:
 
     def _observe_cpu(self, options):
         from opentelemetry.metrics import Observation
+
         with self._lock:
             yield Observation(
                 value=self._cpu_percent,
@@ -82,6 +84,7 @@ class ProcessMetricsCollector:
 
     def _observe_memory(self, options):
         from opentelemetry.metrics import Observation
+
         with self._lock:
             yield Observation(
                 value=self._memory_rss_mb,

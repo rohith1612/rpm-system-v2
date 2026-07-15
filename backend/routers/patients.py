@@ -43,7 +43,9 @@ def list_patients():
 
 
 @router.get("/cerner/search")
-async def search_cerner_patients(query: str, _token: str = Depends(require_cerner_auth)):
+async def search_cerner_patients(
+    query: str, _token: str = Depends(require_cerner_auth)
+):
     """Search for patients in the Cerner EHR Sandbox using the System Token."""
     import asyncio
 
@@ -74,7 +76,8 @@ async def search_cerner_patients(query: str, _token: str = Depends(require_cerne
 
     if resp.status_code != 200:
         log_event(
-            logger, logging.ERROR,
+            logger,
+            logging.ERROR,
             f"Cerner patient search failed with status {resp.status_code}",
             event_category="cerner_read",
             event_type="patient_search",
@@ -139,7 +142,8 @@ async def search_cerner_patients(query: str, _token: str = Depends(require_cerne
                         return True
         except Exception as e:
             log_event(
-                logger, logging.WARNING,
+                logger,
+                logging.WARNING,
                 "Error querying encounters during Cerner patient search",
                 event_category="cerner_read",
                 event_type="encounter_fetch",
@@ -156,7 +160,8 @@ async def search_cerner_patients(query: str, _token: str = Depends(require_cerne
             p["has_active_encounter"] = encounter_results[i]
 
     log_event(
-        logger, logging.INFO,
+        logger,
+        logging.INFO,
         f"Cerner patient search succeeded: found {len(results)} patient(s)",
         event_category="cerner_read",
         event_type="patient_search",
@@ -168,7 +173,9 @@ async def search_cerner_patients(query: str, _token: str = Depends(require_cerne
 
 
 @router.get("/cerner/{cerner_patient_id}")
-async def get_cerner_patient(cerner_patient_id: str, _token: str = Depends(require_cerner_auth)):
+async def get_cerner_patient(
+    cerner_patient_id: str, _token: str = Depends(require_cerner_auth)
+):
     """Get demographics and encounter status for a specific Cerner patient via System Token."""
     import httpx
 
@@ -189,7 +196,8 @@ async def get_cerner_patient(cerner_patient_id: str, _token: str = Depends(requi
 
     if resp.status_code != 200:
         log_event(
-            logger, logging.ERROR,
+            logger,
+            logging.ERROR,
             f"Cerner patient detail fetch failed for ID {cerner_patient_id} with status {resp.status_code}",
             event_category="cerner_read",
             event_type="patient_detail",
@@ -306,7 +314,8 @@ async def get_cerner_patient(cerner_patient_id: str, _token: str = Depends(requi
                     active_encounter_number = enc_num
     except Exception as e:
         log_event(
-            logger, logging.WARNING,
+            logger,
+            logging.WARNING,
             "Error querying encounters for Cerner patient detail",
             event_category="cerner_read",
             event_type="encounter_fetch",
@@ -315,7 +324,8 @@ async def get_cerner_patient(cerner_patient_id: str, _token: str = Depends(requi
         )
 
     log_event(
-        logger, logging.INFO,
+        logger,
+        logging.INFO,
         f"Cerner patient detail fetch succeeded for patient {full_name.strip()}",
         event_category="cerner_read",
         event_type="patient_detail",
@@ -356,7 +366,9 @@ def get_patient_ecg(patient_id: str):
 
 
 @router.post("")
-async def create_new_patient(patient: PatientCreateUpdate, _token: str = Depends(require_auth)):
+async def create_new_patient(
+    patient: PatientCreateUpdate, _token: str = Depends(require_auth)
+):
     """Create a new patient."""
     from fastapi import HTTPException
 
@@ -375,7 +387,9 @@ async def create_new_patient(patient: PatientCreateUpdate, _token: str = Depends
 
 
 @router.put("/{patient_id}")
-async def update_existing_patient(patient_id: str, patient: PatientCreateUpdate, _token: str = Depends(require_auth)):
+async def update_existing_patient(
+    patient_id: str, patient: PatientCreateUpdate, _token: str = Depends(require_auth)
+):
     """Update an existing patient."""
     from backend.routers.websocket import broadcast
     from backend.services.vitals_service import (get_latest_vitals_map,
@@ -456,7 +470,11 @@ def get_thresholds(patient_id: str):
 
 
 @router.put("/{patient_id}/thresholds")
-def update_thresholds(patient_id: str, thresholds: List[ThresholdUpdate], _token: str = Depends(require_auth)):
+def update_thresholds(
+    patient_id: str,
+    thresholds: List[ThresholdUpdate],
+    _token: str = Depends(require_auth),
+):
     """Save custom thresholds for a patient."""
     set_custom_thresholds(patient_id, [t.dict() for t in thresholds])
     return {"status": "success"}
@@ -473,13 +491,20 @@ class CernerLogPayload(BaseModel):
 
 
 @router.post("/cerner/log-sync")
-def log_cerner_sync(payload: CernerLogPayload, _token: str = Depends(require_cerner_auth)):
+def log_cerner_sync(
+    payload: CernerLogPayload, _token: str = Depends(require_cerner_auth)
+):
     """Log Cerner FHIR synchronization status and response details."""
     log_event(
-        logger, logging.INFO if payload.status.lower() == "success" else logging.WARNING,
+        logger,
+        logging.INFO if payload.status.lower() == "success" else logging.WARNING,
         f"Cerner FHIR sync log received: {payload.status.upper()}",
         event_category="cerner_write",
-        event_type="fhir_observation_success" if payload.status.lower() == "success" else "fhir_observation_failure",
+        event_type=(
+            "fhir_observation_success"
+            if payload.status.lower() == "success"
+            else "fhir_observation_failure"
+        ),
         outcome=payload.status.lower(),
         http_status=payload.http_status,
         patient_id=payload.patient_id,
@@ -505,7 +530,11 @@ class CernerSyncRequest(BaseModel):
 
 
 @router.post("/{patient_id}/cerner/sync")
-async def sync_vitals_to_cerner(patient_id: str, payload: CernerSyncRequest, _token: str = Depends(require_cerner_auth)):
+async def sync_vitals_to_cerner(
+    patient_id: str,
+    payload: CernerSyncRequest,
+    _token: str = Depends(require_cerner_auth),
+):
     """
     Sync vitals of a patient to Cerner EHR using the leaky bucket background queue.
     Enqueues the items and returns HTTP 202 immediately.
@@ -533,70 +562,118 @@ async def sync_vitals_to_cerner(patient_id: str, payload: CernerSyncRequest, _to
 
 
 @router.get("/cerner/{cerner_patient_id}/conditions")
-async def get_cerner_conditions(cerner_patient_id: str, _token: str = Depends(require_cerner_auth)):
+async def get_cerner_conditions(
+    cerner_patient_id: str, _token: str = Depends(require_cerner_auth)
+):
     """Fetch and parse FHIR Conditions."""
     import httpx
+
     from backend.config import CERNER_BASE_URL
     from backend.services.system_token import get_system_token
+
     token = await get_system_token()
     url = f"{CERNER_BASE_URL.rstrip('/')}/Condition?patient={cerner_patient_id}"
     async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
-        resp = await client.get(url, headers={"Authorization": f"Bearer {token}", "Accept": "application/fhir+json"})
+        resp = await client.get(
+            url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/fhir+json",
+            },
+        )
     if resp.status_code != 200:
         return []
-    
+
     results = []
     for entry in resp.json().get("entry", []):
         r = entry.get("resource", {})
-        results.append({
-            "id": r.get("id", ""),
-            "name": r.get("code", {}).get("text", "Unknown Condition"),
-            "clinical_status": r.get("clinicalStatus", {}).get("coding", [{}])[0].get("code", "unknown"),
-            "onset": r.get("onsetDateTime", ""),
-            "category": r.get("category", [{}])[0].get("coding", [{}])[0].get("display", "") if r.get("category") else ""
-        })
+        results.append(
+            {
+                "id": r.get("id", ""),
+                "name": r.get("code", {}).get("text", "Unknown Condition"),
+                "clinical_status": r.get("clinicalStatus", {})
+                .get("coding", [{}])[0]
+                .get("code", "unknown"),
+                "onset": r.get("onsetDateTime", ""),
+                "category": (
+                    r.get("category", [{}])[0].get("coding", [{}])[0].get("display", "")
+                    if r.get("category")
+                    else ""
+                ),
+            }
+        )
     return results
 
 
 @router.get("/cerner/{cerner_patient_id}/medications")
-async def get_cerner_medications(cerner_patient_id: str, _token: str = Depends(require_cerner_auth)):
+async def get_cerner_medications(
+    cerner_patient_id: str, _token: str = Depends(require_cerner_auth)
+):
     """Fetch and parse FHIR MedicationRequests."""
     import httpx
+
     from backend.config import CERNER_BASE_URL
     from backend.services.system_token import get_system_token
+
     token = await get_system_token()
     url = f"{CERNER_BASE_URL.rstrip('/')}/MedicationRequest?patient={cerner_patient_id}"
     async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
-        resp = await client.get(url, headers={"Authorization": f"Bearer {token}", "Accept": "application/fhir+json"})
+        resp = await client.get(
+            url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/fhir+json",
+            },
+        )
     if resp.status_code != 200:
         return []
-    
+
     results = []
     for entry in resp.json().get("entry", []):
         r = entry.get("resource", {})
-        results.append({
-            "id": r.get("id", ""),
-            "name": r.get("medicationCodeableConcept", {}).get("text", "Unknown Medication"),
-            "status": r.get("status", "unknown"),
-            "dosage": r.get("dosageInstruction", [{}])[0].get("text", "") if r.get("dosageInstruction") else "",
-            "authored_on": r.get("authoredOn", "")
-        })
+        results.append(
+            {
+                "id": r.get("id", ""),
+                "name": r.get("medicationCodeableConcept", {}).get(
+                    "text", "Unknown Medication"
+                ),
+                "status": r.get("status", "unknown"),
+                "dosage": (
+                    r.get("dosageInstruction", [{}])[0].get("text", "")
+                    if r.get("dosageInstruction")
+                    else ""
+                ),
+                "authored_on": r.get("authoredOn", ""),
+            }
+        )
     return results
 
 
 @router.get("/cerner/{cerner_patient_id}/allergies")
-async def get_cerner_allergies(cerner_patient_id: str, _token: str = Depends(require_cerner_auth)):
+async def get_cerner_allergies(
+    cerner_patient_id: str, _token: str = Depends(require_cerner_auth)
+):
     """Fetch and parse FHIR AllergyIntolerances."""
     import httpx
+
     from backend.config import CERNER_BASE_URL
     from backend.services.system_token import get_system_token
+
     token = await get_system_token()
-    url = f"{CERNER_BASE_URL.rstrip('/')}/AllergyIntolerance?patient={cerner_patient_id}"
+    url = (
+        f"{CERNER_BASE_URL.rstrip('/')}/AllergyIntolerance?patient={cerner_patient_id}"
+    )
     async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
-        resp = await client.get(url, headers={"Authorization": f"Bearer {token}", "Accept": "application/fhir+json"})
+        resp = await client.get(
+            url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/fhir+json",
+            },
+        )
     if resp.status_code != 200:
         return []
-    
+
     results = []
     for entry in resp.json().get("entry", []):
         r = entry.get("resource", {})
@@ -606,38 +683,52 @@ async def get_cerner_allergies(cerner_patient_id: str, _token: str = Depends(req
                 text = m.get("text")
                 if text:
                     reactions.append(text)
-        results.append({
-            "id": r.get("id", ""),
-            "name": r.get("code", {}).get("text", "Unknown Allergy"),
-            "criticality": r.get("criticality", "unknown"),
-            "type": r.get("type", ""),
-            "reactions": reactions
-        })
+        results.append(
+            {
+                "id": r.get("id", ""),
+                "name": r.get("code", {}).get("text", "Unknown Allergy"),
+                "criticality": r.get("criticality", "unknown"),
+                "type": r.get("type", ""),
+                "reactions": reactions,
+            }
+        )
     return results
 
 
 @router.get("/cerner/{cerner_patient_id}/labs")
-async def get_cerner_labs(cerner_patient_id: str, _token: str = Depends(require_cerner_auth)):
+async def get_cerner_labs(
+    cerner_patient_id: str, _token: str = Depends(require_cerner_auth)
+):
     """Fetch and parse FHIR DiagnosticReports."""
     import httpx
+
     from backend.config import CERNER_BASE_URL
     from backend.services.system_token import get_system_token
+
     token = await get_system_token()
     url = f"{CERNER_BASE_URL.rstrip('/')}/DiagnosticReport?patient={cerner_patient_id}"
     async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
-        resp = await client.get(url, headers={"Authorization": f"Bearer {token}", "Accept": "application/fhir+json"})
+        resp = await client.get(
+            url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/fhir+json",
+            },
+        )
     if resp.status_code != 200:
         return []
-    
+
     results = []
     for entry in resp.json().get("entry", []):
         r = entry.get("resource", {})
-        results.append({
-            "id": r.get("id", ""),
-            "name": r.get("code", {}).get("text", "Unknown Lab Report"),
-            "status": r.get("status", "unknown"),
-            "effective_date": r.get("effectiveDateTime", ""),
-            "issued": r.get("issued", ""),
-            "conclusion": r.get("conclusion", "")
-        })
+        results.append(
+            {
+                "id": r.get("id", ""),
+                "name": r.get("code", {}).get("text", "Unknown Lab Report"),
+                "status": r.get("status", "unknown"),
+                "effective_date": r.get("effectiveDateTime", ""),
+                "issued": r.get("issued", ""),
+                "conclusion": r.get("conclusion", ""),
+            }
+        )
     return results

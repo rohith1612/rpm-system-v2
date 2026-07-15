@@ -1,16 +1,23 @@
-import os
 import json
 import logging
+import os
 from typing import Sequence
+
+from opentelemetry.sdk.metrics.export import (MetricExporter,
+                                              MetricExportResult, MetricsData)
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
-from opentelemetry.sdk.metrics.export import MetricExporter, MetricExportResult, MetricsData
+
 from .redaction import redact_dict
+
 
 class JsonFileSpanExporter(SpanExporter):
     """Exports spans to a local JSON file after redacting PII."""
+
     def __init__(self, filepath="traces.json"):
         if not os.path.isabs(filepath):
-            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            project_root = os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            )
             filepath = os.path.join(project_root, filepath)
         self.filepath = os.path.abspath(filepath)
 
@@ -21,19 +28,29 @@ class JsonFileSpanExporter(SpanExporter):
                     span_dict = {
                         "name": span.name,
                         "context": {
-                            "trace_id": hex(span.context.trace_id) if span.context else None,
-                            "span_id": hex(span.context.span_id) if span.context else None,
+                            "trace_id": (
+                                hex(span.context.trace_id) if span.context else None
+                            ),
+                            "span_id": (
+                                hex(span.context.span_id) if span.context else None
+                            ),
                         },
                         "start_time": span.start_time,
                         "end_time": span.end_time,
                         # Redact attributes specifically
-                        "attributes": redact_dict(dict(span.attributes) if span.attributes else {}),
-                        "status": span.status.status_code.name if span.status else "UNSET"
+                        "attributes": redact_dict(
+                            dict(span.attributes) if span.attributes else {}
+                        ),
+                        "status": (
+                            span.status.status_code.name if span.status else "UNSET"
+                        ),
                     }
                     f.write(json.dumps(span_dict) + "\n")
             return SpanExportResult.SUCCESS
         except Exception as e:
-            logging.getLogger(__name__).error(f"Failed to write trace spans to file: {e}")
+            logging.getLogger(__name__).error(
+                f"Failed to write trace spans to file: {e}"
+            )
             return SpanExportResult.FAILURE
 
     def shutdown(self) -> None:
@@ -42,15 +59,20 @@ class JsonFileSpanExporter(SpanExporter):
 
 class JsonFileMetricExporter(MetricExporter):
     """Exports metrics to a local JSON file after redacting PII."""
+
     def __init__(self, filepath="metrics.json"):
         if not os.path.isabs(filepath):
-            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            project_root = os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            )
             filepath = os.path.join(project_root, filepath)
         self.filepath = os.path.abspath(filepath)
         self._preferred_temporality = {}
         self._preferred_aggregation = {}
 
-    def export(self, metrics_data: MetricsData, timeout_millis: float = 10_000, **kwargs) -> MetricExportResult:
+    def export(
+        self, metrics_data: MetricsData, timeout_millis: float = 10_000, **kwargs
+    ) -> MetricExportResult:
         try:
             with open(self.filepath, "a", encoding="utf-8") as f:
                 for resource_metric in metrics_data.resource_metrics:
@@ -62,9 +84,14 @@ class JsonFileMetricExporter(MetricExporter):
                                     "description": metric.description,
                                     "unit": metric.unit,
                                     # Redact metric attributes as well
-                                    "attributes": redact_dict(dict(data_point.attributes) if data_point.attributes else {}),
+                                    "attributes": redact_dict(
+                                        dict(data_point.attributes)
+                                        if data_point.attributes
+                                        else {}
+                                    ),
                                     "time_unix_nano": data_point.time_unix_nano,
-                                    "value": getattr(data_point, 'value', None) or getattr(data_point, 'count', None)
+                                    "value": getattr(data_point, "value", None)
+                                    or getattr(data_point, "count", None),
                                 }
                                 f.write(json.dumps(metric_dict) + "\n")
             return MetricExportResult.SUCCESS
@@ -74,6 +101,6 @@ class JsonFileMetricExporter(MetricExporter):
 
     def shutdown(self, timeout_millis: float = 30_000, **kwargs) -> None:
         pass
-        
+
     def force_flush(self, timeout_millis: float = 10_000) -> bool:
         return True

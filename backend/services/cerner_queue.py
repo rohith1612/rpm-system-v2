@@ -1,5 +1,4 @@
 import datetime
-import json
 import logging
 import queue
 import threading
@@ -10,7 +9,7 @@ import httpx
 
 from backend.config import CERNER_BASE_URL
 from backend.services.system_token import get_system_token
-from backend.telemetry.logger import get_logger, log_event, Timer
+from backend.telemetry.logger import Timer, get_logger, log_event
 
 logger = get_logger(__name__)
 
@@ -126,7 +125,8 @@ def _ensure_worker_running():
 
 def _worker_loop():
     log_event(
-        logger, logging.INFO,
+        logger,
+        logging.INFO,
         "Cerner leaky-bucket background worker started",
         event_category="system",
         event_type="startup",
@@ -149,7 +149,8 @@ def _worker_loop():
 
         except Exception as loop_err:
             log_event(
-                logger, logging.ERROR,
+                logger,
+                logging.ERROR,
                 "Cerner leaky-bucket worker unhandled loop error",
                 event_category="cerner_write",
                 event_type="fhir_observation_failure",
@@ -273,7 +274,8 @@ def _process_queue_item_with_retry(item: Dict[str, Any]):
             except Exception:
                 # Mock/Offline fallback: credentials not configured
                 log_event(
-                    logger, logging.WARNING,
+                    logger,
+                    logging.WARNING,
                     "Cerner write using mock fallback — credentials not configured",
                     event_category="cerner_write",
                     event_type="fhir_mock_fallback",
@@ -294,7 +296,8 @@ def _process_queue_item_with_retry(item: Dict[str, Any]):
             }
 
             log_event(
-                logger, logging.INFO,
+                logger,
+                logging.INFO,
                 f"Sending FHIR {item.get('type', 'observation')} observation to Cerner",
                 event_category="cerner_write",
                 event_type="fhir_observation_start",
@@ -313,7 +316,8 @@ def _process_queue_item_with_retry(item: Dict[str, Any]):
 
             if resp.status_code < 300:
                 log_event(
-                    logger, logging.INFO,
+                    logger,
+                    logging.INFO,
                     f"FHIR {item.get('type', 'observation')} observation written to Cerner successfully",
                     event_category="cerner_write",
                     event_type="fhir_observation_success",
@@ -331,7 +335,8 @@ def _process_queue_item_with_retry(item: Dict[str, Any]):
                 item["retry_count"] += 1
                 if item["retry_count"] >= 3:
                     log_event(
-                        logger, logging.ERROR,
+                        logger,
+                        logging.ERROR,
                         "Cerner FHIR write max retries reached — re-queuing",
                         event_category="cerner_write",
                         event_type="fhir_max_retries_requeue",
@@ -348,7 +353,8 @@ def _process_queue_item_with_retry(item: Dict[str, Any]):
                     break
 
                 log_event(
-                    logger, logging.WARNING,
+                    logger,
+                    logging.WARNING,
                     "FHIR observation write failed — will retry",
                     event_category="cerner_write",
                     event_type="fhir_retry",
@@ -366,7 +372,8 @@ def _process_queue_item_with_retry(item: Dict[str, Any]):
             item["retry_count"] += 1
             if item["retry_count"] >= 3:
                 log_event(
-                    logger, logging.ERROR,
+                    logger,
+                    logging.ERROR,
                     "Cerner FHIR write exception — max retries reached, re-queuing",
                     event_category="cerner_write",
                     event_type="fhir_max_retries_requeue",
@@ -383,7 +390,8 @@ def _process_queue_item_with_retry(item: Dict[str, Any]):
                 break
 
             log_event(
-                logger, logging.WARNING,
+                logger,
+                logging.WARNING,
                 "Cerner FHIR write exception — will retry",
                 event_category="cerner_write",
                 event_type="fhir_retry",

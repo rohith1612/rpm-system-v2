@@ -2,6 +2,7 @@
 Service for managing patient-bed mappings.
 """
 
+import time
 from typing import Dict, Optional
 
 from backend.database.connection import get_connection
@@ -42,8 +43,6 @@ def unassign_patient(patient_id: str) -> None:
     conn.execute("DELETE FROM patient_beds WHERE patient_id = ?", (patient_id,))
     conn.commit()
 
-
-import time
 
 _active_patients_cache = [0.0, set()]
 

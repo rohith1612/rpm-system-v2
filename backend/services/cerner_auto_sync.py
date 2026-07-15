@@ -13,7 +13,8 @@ logger = get_logger(__name__)
 def sync_worker():
     """Background thread that automatically syncs patient vitals to Cerner every 60 seconds."""
     log_event(
-        logger, logging.INFO,
+        logger,
+        logging.INFO,
         "Cerner FHIR auto-sync started (60 s interval)",
         event_category="system",
         event_type="startup",
@@ -62,7 +63,8 @@ def sync_worker():
 
         except Exception as e:
             log_event(
-                logger, logging.ERROR,
+                logger,
+                logging.ERROR,
                 "Cerner auto-sync worker error",
                 event_category="system",
                 event_type="cerner_autosync_tick",

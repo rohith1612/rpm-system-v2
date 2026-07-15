@@ -60,7 +60,8 @@ class ConnectionWrapper:
             return CursorWrapper(cur)
         except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
             log_event(
-                logger, logging.ERROR,
+                logger,
+                logging.ERROR,
                 "NeonDB connection error in execute — resetting and retrying",
                 event_category="neondb",
                 event_type="connection_reset",
@@ -89,7 +90,8 @@ class ConnectionWrapper:
             cur.close()
         except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
             log_event(
-                logger, logging.ERROR,
+                logger,
+                logging.ERROR,
                 "NeonDB connection error in executescript — resetting and retrying",
                 event_category="neondb",
                 event_type="connection_reset",
@@ -115,7 +117,8 @@ class ConnectionWrapper:
             self.conn.commit()
         except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
             log_event(
-                logger, logging.ERROR,
+                logger,
+                logging.ERROR,
                 "NeonDB connection error during commit — resetting",
                 event_category="neondb",
                 event_type="connection_reset",
@@ -167,7 +170,8 @@ def get_connection():
         _local.conn = ConnectionWrapper(conn)
 
         log_event(
-            logger, logging.INFO,
+            logger,
+            logging.INFO,
             "NeonDB connection opened",
             event_category="neondb",
             event_type="connection_open",
@@ -188,7 +192,8 @@ def init_db():
         )
         if cur.fetchone():
             log_event(
-                logger, logging.WARNING,
+                logger,
+                logging.WARNING,
                 "DB migration: legacy 'cerner_patient_id' column detected — dropping tables for schema recreation",
                 event_category="neondb",
                 event_type="schema_init",
@@ -202,7 +207,8 @@ def init_db():
                 DROP TABLE IF EXISTS patients CASCADE;
             """)
             log_event(
-                logger, logging.INFO,
+                logger,
+                logging.INFO,
                 "DB migration: old tables dropped successfully",
                 event_category="neondb",
                 event_type="schema_init",
@@ -210,7 +216,8 @@ def init_db():
             )
     except Exception as e:
         log_event(
-            logger, logging.DEBUG,
+            logger,
+            logging.DEBUG,
             "DB migration check skipped (table may not exist yet)",
             event_category="neondb",
             event_type="schema_init",
@@ -221,7 +228,8 @@ def init_db():
     conn.executescript(SCHEMA_SQL)
 
     log_event(
-        logger, logging.INFO,
+        logger,
+        logging.INFO,
         "NeonDB schema initialised",
         event_category="neondb",
         event_type="schema_init",
@@ -235,7 +243,8 @@ def init_db():
     conn.commit()
 
     log_event(
-        logger, logging.INFO,
+        logger,
+        logging.INFO,
         "NeonDB old telemetry purged (>7 days)",
         event_category="neondb",
         event_type="data_purge",

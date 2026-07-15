@@ -18,7 +18,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 
 from backend.config import CERNER_BASE_URL
-from backend.telemetry.logger import get_logger, log_event, Timer
+from backend.telemetry.logger import Timer, get_logger, log_event
 
 # Auto-error=False so we can provide a clearer 401 message ourselves
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/token", auto_error=False)
@@ -41,7 +41,8 @@ async def _validate_cerner_token(token: str) -> bool:
     timer = Timer()
     try:
         log_event(
-            logger, logging.DEBUG,
+            logger,
+            logging.DEBUG,
             "Sending Cerner token validation probe",
             event_category="auth",
             event_type="token_validation_cerner_call",
@@ -60,10 +61,13 @@ async def _validate_cerner_token(token: str) -> bool:
         is_valid = resp.status_code in (200, 400, 403)
 
         log_event(
-            logger, logging.INFO if is_valid else logging.WARNING,
+            logger,
+            logging.INFO if is_valid else logging.WARNING,
             "Cerner token validation completed",
             event_category="auth",
-            event_type="token_validation_success" if is_valid else "token_validation_failure",
+            event_type=(
+                "token_validation_success" if is_valid else "token_validation_failure"
+            ),
             outcome="success" if is_valid else "failure",
             http_status=resp.status_code,
             duration_ms=timer.stop(),
@@ -72,7 +76,8 @@ async def _validate_cerner_token(token: str) -> bool:
 
     except Exception as e:
         log_event(
-            logger, logging.ERROR,
+            logger,
+            logging.ERROR,
             "Cerner token validation raised exception",
             event_category="auth",
             event_type="token_validation_failure",
@@ -100,7 +105,8 @@ async def require_auth(token: Optional[str] = Depends(oauth2_scheme)) -> str:
     """
     if not token:
         log_event(
-            logger, logging.WARNING,
+            logger,
+            logging.WARNING,
             "Unauthenticated request — no token provided",
             event_category="auth",
             event_type="missing_token",
@@ -115,7 +121,8 @@ async def require_auth(token: Optional[str] = Depends(oauth2_scheme)) -> str:
     # Allow demo token for basic features
     if token == DEMO_TOKEN:
         log_event(
-            logger, logging.INFO,
+            logger,
+            logging.INFO,
             "Demo token used — offline mode access granted",
             event_category="auth",
             event_type="demo_token_used",
@@ -128,7 +135,8 @@ async def require_auth(token: Optional[str] = Depends(oauth2_scheme)) -> str:
     now = time.time()
     if token in _token_cache and _token_cache[token] > now:
         log_event(
-            logger, logging.DEBUG,
+            logger,
+            logging.DEBUG,
             "Token validated from cache (cache hit)",
             event_category="auth",
             event_type="token_validation_cache_hit",
@@ -141,7 +149,8 @@ async def require_auth(token: Optional[str] = Depends(oauth2_scheme)) -> str:
     is_valid = await _validate_cerner_token(token)
     if not is_valid:
         log_event(
-            logger, logging.WARNING,
+            logger,
+            logging.WARNING,
             "Token rejected — invalid or expired",
             event_category="auth",
             event_type="token_validation_failure",
@@ -170,7 +179,8 @@ async def require_cerner_auth(token: Optional[str] = Depends(oauth2_scheme)) -> 
     """
     if not token:
         log_event(
-            logger, logging.WARNING,
+            logger,
+            logging.WARNING,
             "Unauthenticated request to Cerner-gated endpoint",
             event_category="auth",
             event_type="missing_token",
@@ -184,7 +194,8 @@ async def require_cerner_auth(token: Optional[str] = Depends(oauth2_scheme)) -> 
 
     if token == DEMO_TOKEN:
         log_event(
-            logger, logging.WARNING,
+            logger,
+            logging.WARNING,
             "Demo token rejected at Cerner-gated endpoint",
             event_category="auth",
             event_type="demo_token_rejected",

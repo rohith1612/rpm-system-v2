@@ -1,24 +1,29 @@
-import os
 import logging
+import os
+
 from fastapi import FastAPI
-from opentelemetry import trace, metrics
+from opentelemetry import metrics, trace
 from opentelemetry._logs import set_logger_provider
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter  # type: ignore
-from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter  # type: ignore
-from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter  # type: ignore
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
-from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
-from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+from opentelemetry.exporter.otlp.proto.http._log_exporter import \
+    OTLPLogExporter  # type: ignore
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import \
+    OTLPMetricExporter  # type: ignore
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import \
+    OTLPSpanExporter  # type: ignore
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
-
-from opentelemetry.sdk.resources import Resource
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
+from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+from .exporters import JsonFileMetricExporter, JsonFileSpanExporter
 from .logger import setup_logger
-from .exporters import JsonFileSpanExporter, JsonFileMetricExporter
+
 
 def setup_telemetry(app: FastAPI):
     # ── 1. Structured JSON logger ──────────────────────────────────────────────
@@ -36,12 +41,14 @@ def setup_telemetry(app: FastAPI):
 
     # ── 2. OTel Resource ───────────────────────────────────────────────────────
     service_name = os.getenv("OTEL_SERVICE_NAME", "rpm-backend")
-    resource = Resource.create({
-        "service.name": service_name,
-        "service.namespace": "rpm",
-        "service.instance.id": "rpm-backend-main",  # Static ID prevents duplicate instances in Grafana on hot-reloads
-        "deployment.environment": os.getenv("DEPLOYMENT_ENV", "development"),
-    })
+    resource = Resource.create(
+        {
+            "service.name": service_name,
+            "service.namespace": "rpm",
+            "service.instance.id": "rpm-backend-main",  # Static ID prevents duplicate instances in Grafana on hot-reloads
+            "deployment.environment": os.getenv("DEPLOYMENT_ENV", "development"),
+        }
+    )
 
     # ── 3. Traces ──────────────────────────────────────────────────────────────
     tracer_provider = TracerProvider(resource=resource)
@@ -70,7 +77,9 @@ def setup_telemetry(app: FastAPI):
         metric_exporter = OTLPMetricExporter(endpoint=metric_endpoint)
         # Export every 30 s — matches psutil refresh interval
         metric_readers.append(
-            PeriodicExportingMetricReader(metric_exporter, export_interval_millis=30_000)
+            PeriodicExportingMetricReader(
+                metric_exporter, export_interval_millis=30_000
+            )
         )
 
     if os.getenv("OTEL_EXPORT_METRICS_TO_FILE", "false").lower() == "true":
@@ -84,6 +93,7 @@ def setup_telemetry(app: FastAPI):
         # Start CPU / memory process metrics collector
         try:
             from .metrics import ProcessMetricsCollector
+
             ProcessMetricsCollector().start()
         except Exception as metrics_err:
             logger.warning("Could not start ProcessMetricsCollector: %s", metrics_err)
@@ -97,9 +107,7 @@ def setup_telemetry(app: FastAPI):
             + "/v1/logs"
         )
         log_exporter = OTLPLogExporter(endpoint=log_endpoint)
-        logger_provider.add_log_record_processor(
-            BatchLogRecordProcessor(log_exporter)
-        )
+        logger_provider.add_log_record_processor(BatchLogRecordProcessor(log_exporter))
 
         # Bridge Python logging → OTel LoggerProvider so all log_event() calls
         # are forwarded to the OTel Collector automatically.
@@ -111,12 +119,12 @@ def setup_telemetry(app: FastAPI):
     def server_request_hook(span, scope):
         method = scope.get("method", "").upper()
         if method not in ("GET", "POST"):
-            span.is_recording = lambda: False  # Mark span as non-recording so it is dropped
+            span.is_recording = (
+                lambda: False
+            )  # Mark span as non-recording so it is dropped
 
     FastAPIInstrumentor.instrument_app(
-        app,
-        excluded_urls="ws,.*ws.*",
-        server_request_hook=server_request_hook
+        app, excluded_urls="ws,.*ws.*", server_request_hook=server_request_hook
     )
 
     # Outgoing HTTP calls via `requests` library

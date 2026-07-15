@@ -2,18 +2,16 @@
 Threshold-based alert generation for vital signs.
 """
 
-import logging
+import time
 
 from backend.config import ALERT_THRESHOLDS
 from backend.database.connection import get_connection
-from backend.telemetry.logger import get_logger, log_event
+from backend.telemetry.logger import get_logger
 
 logger = get_logger(__name__)
 
-
-import time
-
 _thresholds_cache = {}
+
 
 def get_custom_thresholds(patient_id: str) -> dict:
     """Fetch custom thresholds for a patient (cached for 10s)."""
@@ -36,7 +34,9 @@ def get_custom_thresholds(patient_id: str) -> dict:
 def set_custom_thresholds(patient_id: str, thresholds: list):
     """Save custom thresholds for a patient."""
     with get_connection() as conn:
-        conn.execute("DELETE FROM patient_thresholds WHERE patient_id = ?", (patient_id,))
+        conn.execute(
+            "DELETE FROM patient_thresholds WHERE patient_id = ?", (patient_id,)
+        )
         for t in thresholds:
             conn.execute(
                 """INSERT INTO patient_thresholds 
@@ -123,7 +123,9 @@ def _store_alert(alert: dict):
         conn.commit()
 
 
-def get_patient_alerts(patient_id: str, limit: int = 50, hours: int = None) -> list[dict]:
+def get_patient_alerts(
+    patient_id: str, limit: int = 50, hours: int = None
+) -> list[dict]:
     """Retrieve recent alerts for a patient."""
     with get_connection() as conn:
         query = """SELECT id, vital_type, value, severity, message,
@@ -131,16 +133,19 @@ def get_patient_alerts(patient_id: str, limit: int = 50, hours: int = None) -> l
                    FROM alerts
                    WHERE patient_id = ?"""
         params = [patient_id]
-        
+
         if hours is not None:
             from datetime import datetime, timedelta
-            cutoff = (datetime.now() - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%S")
+
+            cutoff = (datetime.now() - timedelta(hours=hours)).strftime(
+                "%Y-%m-%dT%H:%M:%S"
+            )
             query += " AND created_at >= ?"
             params.append(cutoff)
-            
+
         query += " ORDER BY created_at DESC LIMIT ?"
         params.append(limit)
-        
+
         rows = conn.execute(query, tuple(params)).fetchall()
 
         results = []
@@ -213,7 +218,9 @@ def get_alert_stats(patient_id: str, hours: int = 24) -> dict:
                ORDER BY count DESC""",
             (patient_id, cutoff),
         ).fetchall()
-        by_vital = [{"vital_type": r["vital_type"], "count": r["count"]} for r in vital_rows]
+        by_vital = [
+            {"vital_type": r["vital_type"], "count": r["count"]} for r in vital_rows
+        ]
 
         return {
             "total": total,
@@ -221,4 +228,3 @@ def get_alert_stats(patient_id: str, hours: int = 24) -> dict:
             "by_vital": by_vital,
             "hours": hours,
         }
-

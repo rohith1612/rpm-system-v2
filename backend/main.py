@@ -13,27 +13,30 @@ from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 
-env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+env_path = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"
+)
 load_dotenv(dotenv_path=env_path, override=True)  # Force override with .env values
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi import FastAPI  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.openapi.docs import get_swagger_ui_html  # noqa: E402
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from backend.config import CORS_ORIGINS, MQTT_SESSION_ID
-from backend.database.connection import init_db
-from backend.mqtt.listener import (set_broadcast_fn, set_event_loop,
-                                   start_mqtt_listener)
-from backend.routers import auth, beds, patients, vitals
-from backend.routers import websocket as ws_router
-from backend.telemetry.setup import setup_telemetry
+from backend.config import CORS_ORIGINS, MQTT_SESSION_ID  # noqa: E402
+from backend.database.connection import init_db  # noqa: E402
+from backend.mqtt.listener import set_event_loop  # noqa: E402
+from backend.mqtt.listener import set_broadcast_fn, start_mqtt_listener
+from backend.routers import auth, beds, patients, vitals  # noqa: E402
+from backend.routers import websocket as ws_router  # noqa: E402
+from backend.telemetry.setup import setup_telemetry  # noqa: E402
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     import logging
+
     logger = logging.getLogger("main")
     # ── Startup ───────────────────────────────────────
     logger.info(f"Starting backend (MQTT session: {MQTT_SESSION_ID})")
@@ -95,6 +98,7 @@ app.include_router(ws_router.router)
 app.include_router(beds.router)
 app.include_router(auth.router)
 
+
 @app.get("/")
 def root():
     return {
@@ -102,6 +106,7 @@ def root():
         "version": "1.0.0",
         "mqtt_session": MQTT_SESSION_ID,
     }
+
 
 @app.get("/docs", include_in_schema=False)
 async def custom_swagger_ui_html():

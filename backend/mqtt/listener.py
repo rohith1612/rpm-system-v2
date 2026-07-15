@@ -62,11 +62,9 @@ def _on_message(client, userdata, msg):
                 if time_sent_raw > 1e11:
                     time_sent_raw /= 1000.0
                 try:
-                    time_sent_iso = datetime.fromtimestamp(
-                        time_sent_raw, ist_tz
-                    ).isoformat()
+                    datetime.fromtimestamp(time_sent_raw, ist_tz).isoformat()
                 except Exception:
-                    time_sent_iso = str(time_sent_raw)
+                    str(time_sent_raw)
             else:
                 try:
                     val = str(time_sent_raw)
@@ -75,19 +73,18 @@ def _on_message(client, userdata, msg):
                     dt = datetime.fromisoformat(val)
                     if dt.tzinfo is None:
                         dt = dt.replace(tzinfo=timezone.utc)
-                    time_sent_iso = dt.astimezone(ist_tz).isoformat()
+                    dt.astimezone(ist_tz).isoformat()
                 except Exception:
-                    time_sent_iso = str(time_sent_raw)
+                    str(time_sent_raw)
 
-            uuid_val = payload.get("uuid") or payload.get("UUID") or "N/A"
-            hr = payload.get("heart_rate", "--")
-            spo2 = payload.get("spo2", "--")
-            rr = payload.get("respiratory_rate", "--")
-            sys_bp = payload.get("systolic_bp", "--")
-            dia_bp = payload.get("diastolic_bp", "--")
-            temp = payload.get("temperature", "--")
+            payload.get("uuid") or payload.get("UUID") or "N/A"
+            payload.get("heart_rate", "--")
+            payload.get("spo2", "--")
+            payload.get("respiratory_rate", "--")
+            payload.get("systolic_bp", "--")
+            payload.get("diastolic_bp", "--")
+            payload.get("temperature", "--")
 
-            log_line = f"Time Sent: {time_sent_iso}, UUID: {uuid_val}, Vitals: {{ heart_rate: {hr}, spo2: {spo2}, respiratory_rate: {rr}, systolic_bp: {sys_bp}, diastolic_bp: {dia_bp}, temperature: {temp} }}\n"
             # Removed synchronous file I/O to prevent MQTT subscriber thread blocking and lagging
             # root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             # log_path = os.path.join(root_dir, "analyze.txt")
@@ -168,8 +165,9 @@ def start_mqtt_listener():
 
     def on_connect_vitals(client, userdata, flags, reason_code, properties):
         log_event(
-            logger, logging.INFO,
-            f"MQTT vitals client connected to broker",
+            logger,
+            logging.INFO,
+            "MQTT vitals client connected to broker",
             event_category="system",
             event_type="startup",
             outcome="success",
@@ -196,8 +194,9 @@ def start_mqtt_listener():
 
     def on_connect_ecg(client, userdata, flags, reason_code, properties):
         log_event(
-            logger, logging.INFO,
-            f"MQTT ECG client connected to broker",
+            logger,
+            logging.INFO,
+            "MQTT ECG client connected to broker",
             event_category="system",
             event_type="startup",
             outcome="success",

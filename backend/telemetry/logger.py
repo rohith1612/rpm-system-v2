@@ -14,18 +14,19 @@ Design principle: this module is purely additive.  Existing code that never call
 log_event() continues to work unchanged; it will still produce the base JSON record.
 """
 
-import logging
 import json
+import logging
 import os
 import time
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from .redaction import redact_string, redact_dict, partially_redact
+from .redaction import partially_redact, redact_dict, redact_string
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def _get_otel_context() -> tuple[str | None, str | None]:
     """
@@ -35,6 +36,7 @@ def _get_otel_context() -> tuple[str | None, str | None]:
     """
     try:
         from opentelemetry import trace
+
         span = trace.get_current_span()
         ctx = span.get_span_context()
         if ctx and ctx.is_valid:
@@ -49,6 +51,7 @@ def _get_otel_context() -> tuple[str | None, str | None]:
 # ──────────────────────────────────────────────────────────────────────────────
 # Formatter
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class RedactedJsonFormatter(logging.Formatter):
     """
@@ -70,7 +73,10 @@ class RedactedJsonFormatter(logging.Formatter):
         trace_id, span_id = _get_otel_context()
 
         log_record: dict[str, Any] = {
-            "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
+            "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[
+                :-3
+            ]
+            + "Z",
             "level": record.levelname,
             "name": record.name,
             "message": redact_string(record.getMessage()),
@@ -93,11 +99,24 @@ class RedactedJsonFormatter(logging.Formatter):
         if hasattr(record, "extra_attrs") and isinstance(record.extra_attrs, dict):
             # Redact the extra attrs but preserve well-known non-PII keys verbatim
             _safe_keys = {
-                "event_category", "event_type", "outcome", "duration_ms",
-                "http_status", "queue_depth", "retry_count", "loinc_code",
-                "vital_type", "batch_size", "token_type", "thread_id",
-                "error_detail", "mqtt_broker", "mqtt_topic", "patient_id_hash",
-                "loinc_display", "sql_query",
+                "event_category",
+                "event_type",
+                "outcome",
+                "duration_ms",
+                "http_status",
+                "queue_depth",
+                "retry_count",
+                "loinc_code",
+                "vital_type",
+                "batch_size",
+                "token_type",
+                "thread_id",
+                "error_detail",
+                "mqtt_broker",
+                "mqtt_topic",
+                "patient_id_hash",
+                "loinc_display",
+                "sql_query",
             }
             attrs = record.extra_attrs
             merged: dict[str, Any] = {}
@@ -119,13 +138,16 @@ class RedactedJsonFormatter(logging.Formatter):
 # Setup
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def setup_logger(log_file: str = "logs.json") -> logging.Logger:
     """
     Configure the root logger with the JSON formatter.
     Idempotent — safe to call multiple times.
     """
     if not os.path.isabs(log_file):
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        project_root = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
         log_file = os.path.join(project_root, log_file)
     log_file = os.path.abspath(log_file)
     logger = logging.getLogger()
@@ -159,6 +181,7 @@ def setup_logger(log_file: str = "logs.json") -> logging.Logger:
 # ──────────────────────────────────────────────────────────────────────────────
 # Public helpers
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def get_logger(name: str) -> logging.Logger:
     """Return a named child logger.  Usage: logger = get_logger(__name__)"""
@@ -249,6 +272,7 @@ def log_event(
     if level >= logging.ERROR or outcome == "failure":
         try:
             from opentelemetry import trace
+
             span = trace.get_current_span()
             if span and span.get_span_context().is_valid:
                 span.set_status(trace.StatusCode.ERROR, message)
@@ -265,6 +289,7 @@ def log_event(
 # Timing utility
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class Timer:
     """
     Context-manager / manual timer that returns elapsed milliseconds.
@@ -279,6 +304,7 @@ class Timer:
         do_work()
         elapsed = t.stop()
     """
+
     def __init__(self):
         self._start = time.perf_counter()
         self.elapsed_ms: float = 0.0

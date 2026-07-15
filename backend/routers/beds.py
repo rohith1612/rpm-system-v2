@@ -24,7 +24,9 @@ def list_beds():
 
 
 @router.post("/{bed_id}/assign")
-def assign_bed(bed_id: str, assignment: BedAssignment, _token: str = Depends(require_auth)):
+def assign_bed(
+    bed_id: str, assignment: BedAssignment, _token: str = Depends(require_auth)
+):
     """Assign a patient to a bed."""
     assign_patient_to_bed(bed_id, assignment.patient_id)
     return {"status": "success", "bed_id": bed_id, "patient_id": assignment.patient_id}

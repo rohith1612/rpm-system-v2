@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from backend.config import (APP_POV, CERNER_BASE_URL, CERNER_TOKEN_URL,
                             CLIENT_ID, REDIRECT_URI, SMART_SCOPES)
-from backend.telemetry.logger import get_logger, log_event, Timer
+from backend.telemetry.logger import Timer, get_logger, log_event
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 logger = get_logger(__name__)
@@ -47,7 +47,8 @@ async def exchange_token(req: TokenExchangeRequest):
     Public client flow: no client_secret needed.
     """
     log_event(
-        logger, logging.INFO,
+        logger,
+        logging.INFO,
         "SMART-on-FHIR token exchange initiated",
         event_category="auth",
         event_type="token_exchange_start",
@@ -74,7 +75,8 @@ async def exchange_token(req: TokenExchangeRequest):
             )
     except httpx.RequestError as e:
         log_event(
-            logger, logging.ERROR,
+            logger,
+            logging.ERROR,
             "SMART-on-FHIR token exchange failed — network error",
             event_category="auth",
             event_type="token_exchange_failure",
@@ -90,7 +92,8 @@ async def exchange_token(req: TokenExchangeRequest):
 
     if resp.status_code != 200:
         log_event(
-            logger, logging.WARNING,
+            logger,
+            logging.WARNING,
             "SMART-on-FHIR token exchange rejected by Cerner",
             event_category="auth",
             event_type="token_exchange_failure",
@@ -105,7 +108,8 @@ async def exchange_token(req: TokenExchangeRequest):
         )
 
     log_event(
-        logger, logging.INFO,
+        logger,
+        logging.INFO,
         "SMART-on-FHIR token exchange succeeded — provider authorised",
         event_category="auth",
         event_type="token_exchange_success",
@@ -130,7 +134,8 @@ async def refresh_token(req: TokenRefreshRequest):
     token endpoint from the backend instead of the browser.
     """
     log_event(
-        logger, logging.INFO,
+        logger,
+        logging.INFO,
         "SMART-on-FHIR token refresh initiated",
         event_category="auth",
         event_type="token_refresh_start",
@@ -155,7 +160,8 @@ async def refresh_token(req: TokenRefreshRequest):
             )
     except httpx.RequestError as e:
         log_event(
-            logger, logging.ERROR,
+            logger,
+            logging.ERROR,
             "SMART-on-FHIR token refresh failed — network error",
             event_category="auth",
             event_type="token_refresh_failure",
@@ -171,7 +177,8 @@ async def refresh_token(req: TokenRefreshRequest):
 
     if resp.status_code != 200:
         log_event(
-            logger, logging.WARNING,
+            logger,
+            logging.WARNING,
             "SMART-on-FHIR token refresh rejected by Cerner",
             event_category="auth",
             event_type="token_refresh_failure",
@@ -186,7 +193,8 @@ async def refresh_token(req: TokenRefreshRequest):
         )
 
     log_event(
-        logger, logging.INFO,
+        logger,
+        logging.INFO,
         "SMART-on-FHIR token refresh succeeded",
         event_category="auth",
         event_type="token_refresh_success",

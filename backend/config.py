@@ -4,10 +4,13 @@ Centralized configuration for the Remote Patient Monitoring backend.
 
 import os
 import secrets
+
 from dotenv import load_dotenv
 
 # Load .env explicitly from the project root
-env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+env_path = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"
+)
 load_dotenv(dotenv_path=env_path, override=True)
 
 # Trigger backend configuration reload with fresh .env credentials

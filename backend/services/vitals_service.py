@@ -2,15 +2,15 @@
 Business logic for storing and retrieving vital sign data with in-memory caching and batched database flushes.
 """
 
-import logging
 import collections
+import logging
 import queue
 import threading
 import time
 from datetime import datetime
 
 from backend.database.connection import get_connection
-from backend.telemetry.logger import get_logger, log_event, Timer
+from backend.telemetry.logger import Timer, get_logger, log_event
 
 logger = get_logger(__name__)
 
@@ -42,9 +42,10 @@ def create_patient(patient_id: str, name: str, age: int, condition: str) -> dict
             (patient_id, name, age, condition),
         )
         conn.commit()
-    
+
     log_event(
-        logger, logging.INFO,
+        logger,
+        logging.INFO,
         "Patient created in NeonDB",
         event_category="neondb",
         event_type="patient_create",
@@ -62,9 +63,10 @@ def update_patient(patient_id: str, name: str, age: int, condition: str) -> dict
             (name, age, condition, patient_id),
         )
         conn.commit()
-        
+
     log_event(
-        logger, logging.INFO,
+        logger,
+        logging.INFO,
         "Patient updated in NeonDB",
         event_category="neondb",
         event_type="patient_update",
@@ -79,13 +81,16 @@ def delete_patient(patient_id: str):
     with get_connection() as conn:
         conn.execute("DELETE FROM vitals WHERE patient_id = ?", (patient_id,))
         conn.execute("DELETE FROM alerts WHERE patient_id = ?", (patient_id,))
-        conn.execute("DELETE FROM patient_thresholds WHERE patient_id = ?", (patient_id,))
+        conn.execute(
+            "DELETE FROM patient_thresholds WHERE patient_id = ?", (patient_id,)
+        )
         conn.execute("DELETE FROM patient_beds WHERE patient_id = ?", (patient_id,))
         conn.execute("DELETE FROM patients WHERE id = ?", (patient_id,))
         conn.commit()
-        
+
     log_event(
-        logger, logging.INFO,
+        logger,
+        logging.INFO,
         "Patient and all associated data deleted from NeonDB",
         event_category="neondb",
         event_type="patient_delete",
@@ -167,7 +172,7 @@ def flush_vitals_to_db():
 
     sql_template = "INSERT INTO vitals (patient_id, heart_rate, spo2, temperature, respiratory_rate, systolic_bp, diastolic_bp, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     timer = Timer()
-    
+
     try:
         with get_connection() as conn:
             for data in downsampled_items:
@@ -189,9 +194,10 @@ def flush_vitals_to_db():
                     ),
                 )
             conn.commit()
-            
+
         log_event(
-            logger, logging.INFO,
+            logger,
+            logging.INFO,
             f"NeonDB vitals batch storage: successfully stored {len(downsampled_items)} records",
             event_category="neondb",
             event_type="vitals_flush_success",
@@ -202,7 +208,8 @@ def flush_vitals_to_db():
         )
     except Exception as e:
         log_event(
-            logger, logging.ERROR,
+            logger,
+            logging.ERROR,
             "NeonDB vitals flush failed — re-queuing items",
             event_category="neondb",
             event_type="vitals_flush_failure",
@@ -224,7 +231,8 @@ def db_flush_worker():
             flush_vitals_to_db()
         except Exception as e:
             log_event(
-                logger, logging.ERROR,
+                logger,
+                logging.ERROR,
                 "NeonDB flush worker thread error",
                 event_category="neondb",
                 event_type="vitals_flush_failure",
@@ -244,7 +252,7 @@ def get_all_patients() -> list[dict]:
         rows = conn.execute("""SELECT id, name, age, condition, registered_at
                FROM patients
                ORDER BY id""").fetchall()
-               
+
     patients = []
     for r in rows:
         p = dict(r)
@@ -253,7 +261,7 @@ def get_all_patients() -> list[dict]:
         if isinstance(p.get("recorded_at"), datetime):
             p["recorded_at"] = p["recorded_at"].strftime("%Y-%m-%dT%H:%M:%S")
         patients.append(p)
-        
+
     # Merge with in-memory real-time cache
     for p in patients:
         pid = p["id"]
@@ -302,7 +310,7 @@ def get_patient(patient_id: str) -> dict | None:
                WHERE p.id = ?""",
             (patient_id,),
         ).fetchone()
-        
+
     if not row:
         return None
     p = dict(row)
@@ -334,7 +342,9 @@ def get_vitals_history(
     """Return time-series vitals for a patient within a specific window."""
     with get_connection() as conn:
         if end_time:
-            end_dt = datetime.fromtimestamp(end_time / 1000.0).strftime("%Y-%m-%dT%H:%M:%S")
+            end_dt = datetime.fromtimestamp(end_time / 1000.0).strftime(
+                "%Y-%m-%dT%H:%M:%S"
+            )
             from datetime import timedelta
 
             start_dt = (
@@ -410,9 +420,7 @@ def get_hourly_history_aggregated(
         return [dict(r) for r in rows]
 
 
-def get_summary_aggregated(
-    patient_id: str, hours: int = 24
-) -> list[dict]:
+def get_summary_aggregated(patient_id: str, hours: int = 24) -> list[dict]:
     """
     Return vitals aggregated into hourly buckets for the last N hours.
     Each bucket has min, max, avg for every vital type.
